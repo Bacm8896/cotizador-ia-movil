@@ -12,7 +12,7 @@ import streamlit.components.v1 as components
 from cotizador.builder import construir
 from cotizador.calculator import EntradaLinea, calcular
 from cotizador.config import DEFECTOS, get_setting
-from cotizador.extractor import ExtraccionError, extraer
+from cotizador.extractor import Audio, ExtraccionError, extraer
 from cotizador.renderer import render_html
 from cotizador.schemas import Cliente, ExtraccionTrabajo
 
@@ -47,6 +47,27 @@ if not ss.get("autenticado"):
 
 ss.setdefault("texto", "")
 ss.setdefault("ext", None)  # ExtraccionTrabajo vigente
+ss.setdefault("audio_version", 0)       # cambia la clave del grabador para limpiarlo
+ss.setdefault("aclaracion_version", 0)  # idem para la respuesta a las preguntas de la IA
+ss.setdefault("base_texto", "")         # contexto acumulado de la extracción
+ss.setdefault("base_audios", [])
+
+
+def _audio_de(widget) -> list[Audio]:
+    if widget is None:
+        return []
+    return [Audio(widget.getvalue(), getattr(widget, "type", None) or "audio/wav")]
+
+
+def _extraer(texto: str, audios: list[Audio]) -> bool:
+    with st.spinner("Extrayendo…"):
+        try:
+            ss.ext = extraer(texto, audios)
+        except ExtraccionError as e:
+            st.error(str(e))
+            return False
+    ss.base_texto, ss.base_audios = texto, audios
+    return True
 
 
 # ------------------------------------------------------------------ sidebar
@@ -63,7 +84,13 @@ st.subheader("1. Datos del trabajo")
 col_txt, col_voz = st.columns([3, 2])
 
 with col_voz:
-    audio = st.audio_input("Nota de voz (opcional; Gemini la entiende directamente)")
+    audio = st.audio_input(
+        "Nota de voz (opcional; Gemini la entiende directamente)",
+        key=f"audio_input_{ss.audio_version}",
+    )
+    if audio is not None and st.button("🗑️ Descartar audio y regrabar", type="secondary"):
+        ss.audio_version += 1
+        st.rerun()
 
 with col_txt:
     if st.button("Cargar ejemplo"):
@@ -72,18 +99,29 @@ with col_txt:
                  placeholder="Cliente, ítems, cantidades, precios, condiciones…")
 
 if st.button("Extraer datos con IA", type="primary", disabled=not (ss.texto.strip() or audio)):
-    with st.spinner("Extrayendo…"):
-        try:
-            audio_bytes = audio.getvalue() if audio is not None else None
-            audio_mime = (getattr(audio, "type", None) or "audio/wav") if audio is not None else "audio/wav"
-            ss.ext = extraer(ss.texto, audio_bytes, audio_mime)
-        except ExtraccionError as e:
-            st.error(str(e))
+    ss.aclaracion_version += 1  # nueva extracción: limpia respuestas anteriores
+    _extraer(ss.texto, _audio_de(audio))
 
 ext: ExtraccionTrabajo | None = ss.ext
 if ext is None:
     st.info("Escribe o dicta los datos y pulsa **Extraer datos con IA**.")
     st.stop()
+
+# ------------------------------------------------- preguntas de la IA (no bloquean)
+if ext.preguntas_clarificacion:
+    preguntas_md = "\n".join(f"- {q}" for q in ext.preguntas_clarificacion)
+    st.info(f"**La IA necesita confirmar estos datos:**\n\n{preguntas_md}")
+    v = ss.aclaracion_version
+    respuesta = st.text_area("Escribe o dicta la aclaración:", key=f"aclaracion_{v}", height=90)
+    resp_audio = st.audio_input("Dictar aclaración", key=f"aclaracion_audio_{v}")
+    if st.button("Responder y actualizar cotización", disabled=not (respuesta.strip() or resp_audio)):
+        texto = ss.base_texto
+        if respuesta.strip():
+            texto += "\n\nACLARACIÓN DEL USUARIO: " + respuesta.strip()
+        if _extraer(texto, ss.base_audios + _audio_de(resp_audio)):
+            ss.aclaracion_version += 1
+            st.rerun()
+    st.caption("Puedes ignorar las preguntas y completar los datos directamente abajo.")
 
 # ------------------------------------------------------------ 2. revisión
 st.subheader("2. Revisar y corregir")

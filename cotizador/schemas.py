@@ -40,6 +40,10 @@ class ExtraccionTrabajo(BaseModel):
     total_declarado: float | None = Field(
         description="Total general SOLO si el texto lo menciona literalmente; no lo calcules"
     )
+    preguntas_clarificacion: list[str] = Field(
+        default_factory=list,
+        description="De 1 a 3 preguntas breves si faltan datos críticos; lista vacía si todo está claro",
+    )
 
 
 # ------------------------------------------------------- Resultado validado

@@ -4,6 +4,7 @@ Acepta texto, audio o ambos: Gemini entiende el audio directamente, sin paso de
 transcripción aparte. Funciona con la capa gratuita de Google AI Studio.
 """
 import time
+from typing import NamedTuple
 
 from google import genai
 from google.genai import errors, types
@@ -25,6 +26,12 @@ Reglas:
 - Incluye la unidad en la descripción del ítem ('METROS TENDIDO CERCA ELECTRICA', 'CAMARAS DOMO 2MP').
 - Si la nota dice 'material y mano de obra incluidos' (o similar), ponlo en observaciones.
 - En audio, interpreta cifras habladas ('veintinueve' = 29, 'ocho dólares' = 8).
+
+Preguntas de aclaración (campo 'preguntas_clarificacion'):
+- Si faltan datos CRÍTICOS, formula de 1 a 3 preguntas breves y directas, en español. Son críticos: un ítem sin precio que tampoco tiene precio en el catálogo, no se mencionó ningún cliente, o una cantidad es ambigua (p. ej. 'unas cámaras' o 'varios metros').
+- NO preguntes por datos opcionales (ATN, ciudad, forma de pago, tiempo de entrega, garantía): tienen valores por defecto.
+- Si la nota incluye una 'ACLARACIÓN DEL USUARIO', úsala para completar los campos y no repitas preguntas ya respondidas.
+- Si todo está claro, deja la lista vacía.
 
 Catálogo oficial (descripción oficial | formas en que suelen dictarlo | precio unitario):
 {catalogo}
@@ -53,15 +60,17 @@ class ExtraccionError(RuntimeError):
     pass
 
 
+class Audio(NamedTuple):
+    data: bytes
+    mime: str = "audio/wav"
+
+
 def extraer(
     texto: str = "",
-    audio: bytes | None = None,
-    audio_mime: str = "audio/wav",
+    audios: list[Audio] | None = None,
     client: genai.Client | None = None,
 ) -> ExtraccionTrabajo:
-    partes: list = []
-    if audio:
-        partes.append(types.Part.from_bytes(data=audio, mime_type=audio_mime))
+    partes: list = [types.Part.from_bytes(data=a.data, mime_type=a.mime) for a in audios or [] if a.data]
     if texto.strip():
         partes.append(texto.strip())
     if not partes:
