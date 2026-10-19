@@ -11,7 +11,21 @@ load_dotenv(BASE_DIR / ".env")
 TEMPLATES_DIR = BASE_DIR / "templates"
 LOGO_PATH = BASE_DIR / "assets" / "logo_alarmec.png"
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")  # capa gratuita
+
+
+def get_setting(nombre: str, defecto: str | None = None) -> str | None:
+    """Lee st.secrets primero (Streamlit Cloud) y luego variables de entorno / .env."""
+    try:
+        import streamlit as st
+
+        valor = st.secrets.get(nombre)
+    except Exception:  # sin streamlit o sin secrets.toml
+        valor = None
+    return str(valor) if valor else (os.getenv(nombre) or defecto)
+
+
+def gemini_model() -> str:
+    return get_setting("GEMINI_MODEL", "gemini-3.5-flash")  # capa gratuita
 
 
 @dataclass(frozen=True)

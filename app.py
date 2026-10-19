@@ -3,7 +3,6 @@
 Ejecutar:  streamlit run app.py
 """
 import hmac
-import os
 from datetime import date
 
 import pandas as pd
@@ -12,6 +11,7 @@ import streamlit.components.v1 as components
 
 from cotizador.builder import construir
 from cotizador.calculator import EntradaLinea, calcular
+from cotizador.config import get_setting
 from cotizador.extractor import ExtraccionError, extraer
 from cotizador.renderer import render_html
 from cotizador.schemas import Cliente, ExtraccionTrabajo
@@ -30,11 +30,7 @@ ss = st.session_state
 
 # ------------------------------------------------------------ acceso por PIN
 def _pin_correcto() -> str:
-    try:
-        pin = st.secrets.get("APP_PIN")
-    except Exception:  # no hay secrets.toml
-        pin = None
-    return str(pin or os.getenv("APP_PIN") or "1234")
+    return get_setting("APP_PIN", "1234")
 
 
 if not ss.get("autenticado"):

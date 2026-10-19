@@ -8,7 +8,7 @@ import time
 from google import genai
 from google.genai import errors, types
 
-from .config import GEMINI_MODEL
+from .config import gemini_model, get_setting
 from .schemas import ExtraccionTrabajo
 
 SYSTEM_PROMPT = """\
@@ -53,10 +53,10 @@ def extraer(
         temperature=0,
     )
     try:
-        client = client or genai.Client()  # lee GEMINI_API_KEY / GOOGLE_API_KEY
+        client = client or genai.Client(api_key=get_setting("GEMINI_API_KEY"))
         for intento in range(3):  # la capa gratuita devuelve 503 en picos de demanda
             try:
-                resp = client.models.generate_content(model=GEMINI_MODEL, contents=partes, config=config)
+                resp = client.models.generate_content(model=gemini_model(), contents=partes, config=config)
                 break
             except errors.ServerError:
                 if intento == 2:
