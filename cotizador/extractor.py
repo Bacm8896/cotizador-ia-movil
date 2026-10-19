@@ -12,6 +12,8 @@ from google.genai import errors, types
 from .config import CATALOGO_ALARMEC, gemini_model, get_setting
 from .schemas import ExtraccionTrabajo
 
+__all__ = ["Audio", "ExtraccionError", "construir_prompt", "extraer"]
+
 SYSTEM_PROMPT = """\
 Eres el asistente de cotizaciones de una empresa de seguridad electrónica en Quito, Ecuador \
 (alarmas, CCTV, cercas eléctricas, porteros, motores de garaje, domótica).
