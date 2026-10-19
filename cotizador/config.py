@@ -11,7 +11,7 @@ load_dotenv(BASE_DIR / ".env")
 TEMPLATES_DIR = BASE_DIR / "templates"
 LOGO_PATH = BASE_DIR / "assets" / "logo_alarmec.png"
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")  # capa gratuita
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")  # capa gratuita
 
 
 @dataclass(frozen=True)

@@ -3,6 +3,8 @@
 Acepta texto, audio o ambos: Gemini entiende el audio directamente, sin paso de
 transcripción aparte. Funciona con la capa gratuita de Google AI Studio.
 """
+import time
+
 from google import genai
 from google.genai import errors, types
 
@@ -44,18 +46,22 @@ def extraer(
     if not partes:
         raise ExtraccionError("Escribe un texto o graba una nota de voz.")
 
+    config = types.GenerateContentConfig(
+        system_instruction=SYSTEM_PROMPT,
+        response_mime_type="application/json",
+        response_schema=ExtraccionTrabajo,
+        temperature=0,
+    )
     try:
         client = client or genai.Client()  # lee GEMINI_API_KEY / GOOGLE_API_KEY
-        resp = client.models.generate_content(
-            model=GEMINI_MODEL,
-            contents=partes,
-            config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_PROMPT,
-                response_mime_type="application/json",
-                response_schema=ExtraccionTrabajo,
-                temperature=0,
-            ),
-        )
+        for intento in range(3):  # la capa gratuita devuelve 503 en picos de demanda
+            try:
+                resp = client.models.generate_content(model=GEMINI_MODEL, contents=partes, config=config)
+                break
+            except errors.ServerError:
+                if intento == 2:
+                    raise
+                time.sleep(2 * (intento + 1))
     except ValueError as e:  # el SDK lo lanza si no hay API key
         raise ExtraccionError("Falta la API key de Gemini (GEMINI_API_KEY en .env).") from e
     except errors.ClientError as e:
