@@ -74,7 +74,9 @@ with col_txt:
 if st.button("Extraer datos con IA", type="primary", disabled=not (ss.texto.strip() or audio)):
     with st.spinner("Extrayendo…"):
         try:
-            ss.ext = extraer(ss.texto, audio.getvalue() if audio else None, audio.type or "audio/wav")
+            audio_bytes = audio.getvalue() if audio is not None else None
+            audio_mime = (getattr(audio, "type", None) or "audio/wav") if audio is not None else "audio/wav"
+            ss.ext = extraer(ss.texto, audio_bytes, audio_mime)
         except ExtraccionError as e:
             st.error(str(e))
 
