@@ -2,6 +2,8 @@
 
 Ejecutar:  streamlit run app.py
 """
+import hmac
+import os
 from datetime import date
 
 import pandas as pd
@@ -24,6 +26,31 @@ EJEMPLO = (
 COLUMNAS = ["cantidad", "descripcion", "precio_unitario", "total_declarado"]
 
 ss = st.session_state
+
+
+# ------------------------------------------------------------ acceso por PIN
+def _pin_correcto() -> str:
+    pin = os.getenv("APP_PIN")
+    if not pin:
+        try:
+            pin = st.secrets.get("APP_PIN")
+        except Exception:  # no hay secrets.toml
+            pin = None
+    return str(pin or "1234")
+
+
+if not ss.get("autenticado"):
+    st.title("🔒 Cotizador ALARMEC")
+    with st.form("login"):
+        pin = st.text_input("PIN", type="password")
+        entrar = st.form_submit_button("Ingresar")
+    if entrar:
+        if hmac.compare_digest(pin.encode(), _pin_correcto().encode()):
+            ss.autenticado = True
+            st.rerun()
+        st.error("PIN incorrecto.")
+    st.stop()
+
 ss.setdefault("texto", "")
 ss.setdefault("ext", None)  # ExtraccionTrabajo vigente
 
