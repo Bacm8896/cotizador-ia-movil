@@ -1,14 +1,19 @@
-"""Extracción con Claude + Structured Outputs (JSON validado por Pydantic)."""
-import anthropic
+"""Extracción con Google Gemini (SDK google-genai) y salida estructurada Pydantic.
 
-from .config import ANTHROPIC_MODEL
+Acepta texto, audio o ambos: Gemini entiende el audio directamente, sin paso de
+transcripción aparte. Funciona con la capa gratuita de Google AI Studio.
+"""
+from google import genai
+from google.genai import errors, types
+
+from .config import GEMINI_MODEL
 from .schemas import ExtraccionTrabajo
 
 SYSTEM_PROMPT = """\
 Eres el asistente de cotizaciones de una empresa de seguridad electrónica en Quito, Ecuador \
 (alarmas, CCTV, cercas eléctricas, porteros, motores de garaje, domótica).
 
-Recibirás una nota (texto escrito o transcripción de voz) con los datos de un trabajo. \
+Recibirás una nota (texto escrito y/o nota de voz) con los datos de un trabajo. \
 Extrae el cliente, los ítems con sus cantidades y precios, y las condiciones comerciales.
 
 Reglas:
@@ -17,7 +22,7 @@ Reglas:
 - Escribe descripciones, título y observaciones en MAYÚSCULAS, como en las cotizaciones de la empresa.
 - Incluye la unidad en la descripción del ítem ('METROS TENDIDO CERCA ELECTRICA', 'CAMARAS DOMO 2MP').
 - Si la nota dice 'material y mano de obra incluidos' (o similar), ponlo en observaciones.
-- Las transcripciones de voz pueden tener errores; interpreta cifras habladas ('veintinueve' = 29, 'ocho dólares' = 8).
+- En audio, interpreta cifras habladas ('veintinueve' = 29, 'ocho dólares' = 8).
 """
 
 
@@ -25,27 +30,44 @@ class ExtraccionError(RuntimeError):
     pass
 
 
-def extraer(texto: str, client: anthropic.Anthropic | None = None) -> ExtraccionTrabajo:
-    client = client or anthropic.Anthropic()
-    try:
-        resp = client.messages.parse(
-            model=ANTHROPIC_MODEL,
-            max_tokens=4096,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": texto}],
-            output_format=ExtraccionTrabajo,
-        )
-    except anthropic.AuthenticationError as e:
-        raise ExtraccionError("API key de Anthropic inválida o ausente (ANTHROPIC_API_KEY).") from e
-    except anthropic.RateLimitError as e:
-        raise ExtraccionError("Límite de uso alcanzado; reintenta en unos segundos.") from e
-    except anthropic.APIConnectionError as e:
-        raise ExtraccionError("No se pudo conectar con la API de Anthropic.") from e
-    except anthropic.APIStatusError as e:
-        raise ExtraccionError(f"Error de la API ({e.status_code}): {e.message}") from e
+def extraer(
+    texto: str = "",
+    audio: bytes | None = None,
+    audio_mime: str = "audio/wav",
+    client: genai.Client | None = None,
+) -> ExtraccionTrabajo:
+    partes: list = []
+    if audio:
+        partes.append(types.Part.from_bytes(data=audio, mime_type=audio_mime))
+    if texto.strip():
+        partes.append(texto.strip())
+    if not partes:
+        raise ExtraccionError("Escribe un texto o graba una nota de voz.")
 
-    if resp.stop_reason == "refusal":
-        raise ExtraccionError("El modelo rechazó la solicitud.")
-    if resp.stop_reason == "max_tokens" or resp.parsed_output is None:
-        raise ExtraccionError("La respuesta quedó incompleta; acorta la nota o reintenta.")
-    return resp.parsed_output
+    try:
+        client = client or genai.Client()  # lee GEMINI_API_KEY / GOOGLE_API_KEY
+        resp = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=partes,
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_PROMPT,
+                response_mime_type="application/json",
+                response_schema=ExtraccionTrabajo,
+                temperature=0,
+            ),
+        )
+    except ValueError as e:  # el SDK lo lanza si no hay API key
+        raise ExtraccionError("Falta la API key de Gemini (GEMINI_API_KEY en .env).") from e
+    except errors.ClientError as e:
+        if e.code == 429:
+            raise ExtraccionError("Se alcanzó el límite de la capa gratuita; espera un minuto y reintenta.") from e
+        if e.code in (400, 401, 403):
+            raise ExtraccionError(f"Solicitud o API key rechazada por Gemini: {e.message}") from e
+        raise ExtraccionError(f"Error de Gemini ({e.code}): {e.message}") from e
+    except errors.ServerError as e:
+        raise ExtraccionError("Gemini no está disponible por ahora; reintenta.") from e
+
+    ext = resp.parsed
+    if not isinstance(ext, ExtraccionTrabajo):
+        raise ExtraccionError("Gemini no devolvió un JSON válido; reintenta o reformula la nota.")
+    return ext

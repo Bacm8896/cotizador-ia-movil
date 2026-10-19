@@ -13,7 +13,6 @@ from cotizador.calculator import EntradaLinea, calcular
 from cotizador.extractor import ExtraccionError, extraer
 from cotizador.renderer import render_html
 from cotizador.schemas import Cliente, ExtraccionTrabajo
-from cotizador.transcriber import TranscripcionError, transcribir
 
 st.set_page_config(page_title="Cotizador ALARMEC", page_icon="🧾", layout="wide")
 
@@ -43,13 +42,7 @@ st.subheader("1. Datos del trabajo")
 col_txt, col_voz = st.columns([3, 2])
 
 with col_voz:
-    audio = st.audio_input("Nota de voz (opcional)")
-    if audio is not None and st.button("Transcribir nota de voz"):
-        with st.spinner("Transcribiendo..."):
-            try:
-                ss.texto = transcribir(audio.getvalue())
-            except TranscripcionError as e:
-                st.error(str(e))
+    audio = st.audio_input("Nota de voz (opcional; Gemini la entiende directamente)")
 
 with col_txt:
     if st.button("Cargar ejemplo"):
@@ -57,10 +50,10 @@ with col_txt:
     st.text_area("Texto o nota", key="texto", height=170,
                  placeholder="Cliente, ítems, cantidades, precios, condiciones…")
 
-if st.button("Extraer datos con IA", type="primary", disabled=not ss.texto.strip()):
+if st.button("Extraer datos con IA", type="primary", disabled=not (ss.texto.strip() or audio)):
     with st.spinner("Extrayendo…"):
         try:
-            ss.ext = extraer(ss.texto)
+            ss.ext = extraer(ss.texto, audio.getvalue() if audio else None, audio.type or "audio/wav")
         except ExtraccionError as e:
             st.error(str(e))
 
