@@ -30,13 +30,11 @@ ss = st.session_state
 
 # ------------------------------------------------------------ acceso por PIN
 def _pin_correcto() -> str:
-    pin = os.getenv("APP_PIN")
-    if not pin:
-        try:
-            pin = st.secrets.get("APP_PIN")
-        except Exception:  # no hay secrets.toml
-            pin = None
-    return str(pin or "1234")
+    try:
+        pin = st.secrets.get("APP_PIN")
+    except Exception:  # no hay secrets.toml
+        pin = None
+    return str(pin or os.getenv("APP_PIN") or "1234")
 
 
 if not ss.get("autenticado"):
