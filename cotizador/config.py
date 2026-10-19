@@ -62,5 +62,31 @@ class CondicionesPorDefecto:
     ciudad_cliente: str = "QUITO-ECUADOR"
 
 
+@dataclass(frozen=True)
+class ItemCatalogo:
+    descripcion: str                      # texto oficial que sale en la cotización
+    alias: tuple[str, ...] = ()           # cómo suelen dictarlo
+    precio_unitario: float | None = None  # None = sin precio oficial; completar
+
+
+# Catálogo base. Solo el precio de la cerca eléctrica viene del Excel modelo (abril 2023);
+# los demás están en None: complétalos con tus precios vigentes.
+CATALOGO_ALARMEC: list[ItemCatalogo] = [
+    ItemCatalogo("METROS TENDIDO CERCA ELECTRICA", ("cerca eléctrica", "cerco eléctrico", "tendido de cerca"), 8.00),
+    ItemCatalogo("BATERIA 12V", ("batería", "baterías 12 voltios", "batería de respaldo")),
+    ItemCatalogo("CAMARA DOMO", ("cámara domo", "domo")),
+    ItemCatalogo("CAMARA TUBO", ("cámara tubo", "cámara bullet", "tubo")),
+    ItemCatalogo("DVR", ("dvr", "grabador", "grabador de video")),
+    ItemCatalogo("MOTOR DE GARAJE", ("motor de garaje", "motor de portón", "motor de puerta")),
+    ItemCatalogo("ENERGIZADOR DE CERCA ELECTRICA", ("energizador", "central de cerca")),
+    ItemCatalogo("SIRENA", ("sirena", "sirena exterior")),
+    ItemCatalogo("SENSOR DE MOVIMIENTO", ("sensor", "sensor pir", "detector de movimiento")),
+    ItemCatalogo("PANEL DE ALARMA", ("panel", "central de alarma", "alarma")),
+    ItemCatalogo("PORTERO ELECTRICO", ("portero", "intercomunicador", "video portero")),
+    ItemCatalogo("MANTENIMIENTO", ("mantenimiento", "chequeo", "revisión")),
+    ItemCatalogo("REINSTALACION", ("reinstalación", "reinstalar")),
+]
+
+
 EMPRESA = Empresa()
 DEFECTOS = CondicionesPorDefecto()

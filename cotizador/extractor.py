@@ -8,7 +8,7 @@ import time
 from google import genai
 from google.genai import errors, types
 
-from .config import gemini_model, get_setting
+from .config import CATALOGO_ALARMEC, gemini_model, get_setting
 from .schemas import ExtraccionTrabajo
 
 SYSTEM_PROMPT = """\
@@ -25,7 +25,28 @@ Reglas:
 - Incluye la unidad en la descripción del ítem ('METROS TENDIDO CERCA ELECTRICA', 'CAMARAS DOMO 2MP').
 - Si la nota dice 'material y mano de obra incluidos' (o similar), ponlo en observaciones.
 - En audio, interpreta cifras habladas ('veintinueve' = 29, 'ocho dólares' = 8).
+
+Catálogo oficial (descripción oficial | formas en que suelen dictarlo | precio unitario):
+{catalogo}
+
+Uso del catálogo:
+- Si un producto dictado coincide con una entrada, usa su DESCRIPCIÓN OFICIAL exacta (conservando la cantidad dictada).
+- Si la nota da un precio, respétalo. Usa el precio del catálogo solo cuando la nota no dice precio y el catálogo lo tiene.
+- Si el catálogo no tiene precio para esa entrada ('sin precio'), deja precio_unitario en null.
+- Si el ítem NO está en el catálogo, conserva textualmente lo dictado; no fuerces una coincidencia dudosa.
 """
+
+
+def _texto_catalogo() -> str:
+    lineas = []
+    for it in CATALOGO_ALARMEC:
+        precio = f"{it.precio_unitario:.2f}" if it.precio_unitario is not None else "sin precio"
+        lineas.append(f"- {it.descripcion} | {', '.join(it.alias)} | {precio}")
+    return "\n".join(lineas)
+
+
+def construir_prompt() -> str:
+    return SYSTEM_PROMPT.format(catalogo=_texto_catalogo())
 
 
 class ExtraccionError(RuntimeError):
@@ -47,7 +68,7 @@ def extraer(
         raise ExtraccionError("Escribe un texto o graba una nota de voz.")
 
     config = types.GenerateContentConfig(
-        system_instruction=SYSTEM_PROMPT,
+        system_instruction=construir_prompt(),
         response_mime_type="application/json",
         response_schema=ExtraccionTrabajo,
         temperature=0,

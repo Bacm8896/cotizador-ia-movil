@@ -11,7 +11,7 @@ import streamlit.components.v1 as components
 
 from cotizador.builder import construir
 from cotizador.calculator import EntradaLinea, calcular
-from cotizador.config import get_setting
+from cotizador.config import DEFECTOS, get_setting
 from cotizador.extractor import ExtraccionError, extraer
 from cotizador.renderer import render_html
 from cotizador.schemas import Cliente, ExtraccionTrabajo
@@ -95,6 +95,7 @@ telefono = c2.text_input("Teléfono", c.telefono or "")
 direccion = a.text_input("Dirección", c.direccion or "")
 ciudad = b.text_input("Ciudad", c.ciudad or "")
 titulo = c2.text_input("Título del trabajo", ext.titulo_trabajo or "")
+tiempo_entrega = st.text_input("Tiempo de entrega", ext.tiempo_entrega or DEFECTOS.tiempo_entrega)
 
 df_in = pd.DataFrame([i.model_dump() for i in ext.items], columns=COLUMNAS)
 df = st.data_editor(
@@ -103,7 +104,7 @@ df = st.data_editor(
         "cantidad": st.column_config.NumberColumn("Cantidad", min_value=0.0),
         "descripcion": st.column_config.TextColumn("Descripción", width="large"),
         "precio_unitario": st.column_config.NumberColumn("P. unitario", min_value=0.0, format="%.2f"),
-        "total_declarado": st.column_config.NumberColumn("Total dicho (referencia)", format="%.2f", disabled=True),
+        "total_declarado": None,  # oculta: solo se usa para avisar de diferencias
     },
 )
 obs = st.text_area("Observaciones (una por línea)", "\n".join(ext.observaciones), height=70)
@@ -141,7 +142,7 @@ revisada = ExtraccionTrabajo(
     titulo_trabajo=titulo,
     items=[],
     observaciones=[o.strip() for o in obs.splitlines() if o.strip()],
-    forma_pago=ext.forma_pago, saldo=ext.saldo, tiempo_entrega=ext.tiempo_entrega,
+    forma_pago=ext.forma_pago, saldo=ext.saldo, tiempo_entrega=tiempo_entrega.strip() or None,
     garantia=ext.garantia, total_declarado=ext.total_declarado,
 )
 html = render_html(construir(revisada, res, fecha))
