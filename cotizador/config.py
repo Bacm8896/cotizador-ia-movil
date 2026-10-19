@@ -21,7 +21,8 @@ def get_setting(nombre: str, defecto: str | None = None) -> str | None:
         valor = st.secrets.get(nombre)
     except Exception:  # sin streamlit o sin secrets.toml
         valor = None
-    return str(valor) if valor else (os.getenv(nombre) or defecto)
+    valor = str(valor).strip() if valor else (os.getenv(nombre) or "").strip()
+    return valor or defecto  # strip: un espacio o salto de línea al pegar invalida la clave
 
 
 def gemini_model() -> str:
