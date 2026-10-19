@@ -18,6 +18,7 @@ from cotizador.config import DEFECTOS, get_setting
 from cotizador.extractor import Audio, ExtraccionError, extraer
 from cotizador.renderer import render_html
 from cotizador.schemas import Cliente, ExtraccionTrabajo
+from cotizador.whatsapp import enlace, mensaje, normalizar_telefono
 
 st.set_page_config(page_title="Cotizador ALARMEC", page_icon="🧾", layout="wide")
 
@@ -200,7 +201,27 @@ revisada = ExtraccionTrabajo(
     forma_pago=ext.forma_pago, saldo=ext.saldo, tiempo_entrega=tiempo_entrega.strip() or None,
     garantia=ext.garantia, total_declarado=ext.total_declarado,
 )
-html = render_html(construir(revisada, res, fecha))
+cot = construir(revisada, res, fecha)
+html = render_html(cot)
 components.html(html, height=1250, scrolling=True)
-st.download_button("Descargar HTML", html, file_name="cotizacion.html", mime="text/html")
-st.caption("Para PDF: abre el HTML descargado y usa Imprimir → Guardar como PDF.")
+
+st.subheader("5. Enviar")
+col_desc, col_wa = st.columns(2)
+with col_desc:
+    st.markdown("**📥 Guardar en el móvil**")
+    st.download_button(
+        "Descargar cotización", html, file_name="cotizacion.html", mime="text/html",
+        width="stretch", type="primary",
+    )
+    st.caption("Se guarda como HTML; ábrelo y usa Imprimir → Guardar como PDF si lo necesitas en PDF.")
+with col_wa:
+    st.markdown("**📲 Enviar por WhatsApp**")
+    numero = st.text_input("WhatsApp del cliente", value=telefono, key=f"wa_{clave_ext}")
+    valido = normalizar_telefono(numero) is not None
+    st.link_button(
+        "Enviar por WhatsApp", enlace(numero, mensaje(cot)), width="stretch", type="primary",
+    )
+    st.caption(
+        "Se abre WhatsApp con la cotización escrita lista para enviar."
+        if valido else "Número no válido o vacío: WhatsApp te dejará elegir el contacto."
+    )
