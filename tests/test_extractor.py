@@ -26,13 +26,10 @@ class _Cliente:
         return _Resp(**self._extra)
 
 
-def test_preguntas_por_defecto_vacias():
-    assert ExtraccionTrabajo.model_validate(BASE).preguntas_clarificacion == []
-
-
-def test_prompt_pide_preguntas_y_usa_catalogo():
+def test_prompt_usa_catalogo_y_no_pide_preguntas():
     p = construir_prompt()
-    assert "preguntas_clarificacion" in p and "METROS TENDIDO CERCA ELECTRICA" in p
+    assert "METROS TENDIDO CERCA ELECTRICA" in p and "clarificacion" not in p
+    assert "preguntas_clarificacion" not in ExtraccionTrabajo.model_json_schema()["properties"]
 
 
 @pytest.mark.parametrize("texto,audios,n_partes", [
@@ -41,10 +38,10 @@ def test_prompt_pide_preguntas_y_usa_catalogo():
     ("hola", [Audio(b"x"), Audio(b"y", "audio/webm")], 3),
 ])
 def test_texto_audio_o_ambos(texto, audios, n_partes):
-    c = _Cliente(preguntas_clarificacion=["¿Precio?"])
-    r = extraer(texto, audios, client=c)
+    c = _Cliente()
+    extraer(texto, audios, client=c)
+    assert len(c.llamadas) == 1  # una sola llamada por extracción
     assert len(c.llamadas[0]["contents"]) == n_partes
-    assert r.preguntas_clarificacion == ["¿Precio?"]
 
 
 def test_sin_entrada_falla():

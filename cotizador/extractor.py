@@ -3,7 +3,6 @@
 Acepta texto, audio o ambos: Gemini entiende el audio directamente, sin paso de
 transcripción aparte. Funciona con la capa gratuita de Google AI Studio.
 """
-import time
 from typing import NamedTuple
 
 from google import genai
@@ -28,12 +27,6 @@ Reglas:
 - Incluye la unidad en la descripción del ítem ('METROS TENDIDO CERCA ELECTRICA', 'CAMARAS DOMO 2MP').
 - Si la nota dice 'material y mano de obra incluidos' (o similar), ponlo en observaciones.
 - En audio, interpreta cifras habladas ('veintinueve' = 29, 'ocho dólares' = 8).
-
-Preguntas de aclaración (campo 'preguntas_clarificacion'):
-- Si faltan datos CRÍTICOS, formula de 1 a 3 preguntas breves y directas, en español. Son críticos: un ítem sin precio que tampoco tiene precio en el catálogo, no se mencionó ningún cliente, o una cantidad es ambigua (p. ej. 'unas cámaras' o 'varios metros').
-- NO preguntes por datos opcionales (ATN, ciudad, forma de pago, tiempo de entrega, garantía): tienen valores por defecto.
-- Si la nota incluye una 'ACLARACIÓN DEL USUARIO', úsala para completar los campos y no repitas preguntas ya respondidas.
-- Si todo está claro, deja la lista vacía.
 
 Catálogo oficial (descripción oficial | formas en que suelen dictarlo | precio unitario):
 {catalogo}
@@ -85,15 +78,12 @@ def extraer(
         temperature=0,
     )
     try:
-        client = client or genai.Client(api_key=get_setting("GEMINI_API_KEY"))
-        for intento in range(3):  # la capa gratuita devuelve 503 en picos de demanda
-            try:
-                resp = client.models.generate_content(model=gemini_model(), contents=partes, config=config)
-                break
-            except errors.ServerError:
-                if intento == 2:
-                    raise
-                time.sleep(2 * (intento + 1))
+        # Una sola llamada por extracción: sin reintentos automáticos (cada reintento gasta cuota gratuita).
+        client = client or genai.Client(
+            api_key=get_setting("GEMINI_API_KEY"),
+            http_options=types.HttpOptions(retry_options=types.HttpRetryOptions(attempts=1)),
+        )
+        resp = client.models.generate_content(model=gemini_model(), contents=partes, config=config)
     except ValueError as e:  # el SDK lo lanza si no hay API key
         raise ExtraccionError("Falta la API key de Gemini (GEMINI_API_KEY en .env).") from e
     except errors.ClientError as e:

@@ -28,6 +28,11 @@ def test_errores_bloquean():
     assert not calcular([]).ok
 
 
+def test_precio_cero_o_negativo_es_error():
+    r = calcular([EntradaLinea(1, "X", 0), EntradaLinea(1, "Y", -3)])
+    assert not r.ok and len(r.errores) == 2
+
+
 def test_formato_es():
     assert money(Decimal("1234.5")) == "1.234,50"
     assert money(Decimal("232")) == "232,00"

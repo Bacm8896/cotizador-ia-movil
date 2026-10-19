@@ -57,8 +57,8 @@ def calcular(
         if e.precio_unitario is None:
             res.errores.append(f"Ítem {n} ({desc or 's/d'}): falta el precio unitario.")
             continue
-        if e.precio_unitario < 0:
-            res.errores.append(f"Ítem {n} ({desc}): el precio unitario no puede ser negativo.")
+        if e.precio_unitario <= 0:
+            res.errores.append(f"Ítem {n} ({desc}): el precio unitario debe ser mayor que 0.")
             continue
 
         cantidad = Decimal(str(e.cantidad))
