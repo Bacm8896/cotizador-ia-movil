@@ -11,7 +11,7 @@ from google.genai import errors, types
 from .config import CATALOGO_ALARMEC, gemini_model, get_setting
 from .schemas import ExtraccionTrabajo
 
-__all__ = ["Audio", "ExtraccionError", "construir_prompt", "extraer"]
+__all__ = ["Audio", "ExtraccionError", "ajustar", "construir_prompt", "extraer"]
 
 SYSTEM_PROMPT = """\
 Eres el asistente de cotizaciones de una empresa de seguridad electrónica en Quito, Ecuador \
@@ -60,25 +60,22 @@ class Audio(NamedTuple):
     mime: str = "audio/wav"
 
 
-def extraer(
-    texto: str = "",
-    audios: list[Audio] | None = None,
-    client: genai.Client | None = None,
-) -> ExtraccionTrabajo:
+def _partes(texto: str, audios: list[Audio] | None) -> list:
     partes: list = [types.Part.from_bytes(data=a.data, mime_type=a.mime) for a in audios or [] if a.data]
     if texto.strip():
         partes.append(texto.strip())
-    if not partes:
-        raise ExtraccionError("Escribe un texto o graba una nota de voz.")
+    return partes
 
+
+def _generar(partes: list, system: str, client: genai.Client | None) -> ExtraccionTrabajo:
+    """UNA llamada a Gemini (sin reintentos automáticos: cada reintento gasta cuota gratuita)."""
     config = types.GenerateContentConfig(
-        system_instruction=construir_prompt(),
+        system_instruction=system,
         response_mime_type="application/json",
         response_schema=ExtraccionTrabajo,
         temperature=0,
     )
     try:
-        # Una sola llamada por extracción: sin reintentos automáticos (cada reintento gasta cuota gratuita).
         client = client or genai.Client(
             api_key=get_setting("GEMINI_API_KEY"),
             http_options=types.HttpOptions(retry_options=types.HttpRetryOptions(attempts=1)),
@@ -99,3 +96,33 @@ def extraer(
     if not isinstance(ext, ExtraccionTrabajo):
         raise ExtraccionError("Gemini no devolvió un JSON válido; reintenta o reformula la nota.")
     return ext
+
+
+def extraer(
+    texto: str = "",
+    audios: list[Audio] | None = None,
+    client: genai.Client | None = None,
+) -> ExtraccionTrabajo:
+    partes = _partes(texto, audios)
+    if not partes:
+        raise ExtraccionError("Escribe un texto o graba una nota de voz.")
+    return _generar(partes, construir_prompt(), client)
+
+
+PROMPT_AJUSTE = """Recibirás la cotización ACTUAL en JSON y una INSTRUCCIÓN DE AJUSTE del usuario (texto y/o voz). Devuelve la cotización COMPLETA actualizada aplicando únicamente lo que pide la instrucción; todo lo demás se mantiene exactamente igual. Si pide agregar un ítem, añádelo al final; si pide quitar o cambiar uno, modifica solo ese. No inventes datos que no se mencionen. Mantén las mayúsculas y las reglas del catálogo de abajo.
+
+"""
+
+
+def ajustar(
+    actual: ExtraccionTrabajo,
+    instruccion: str = "",
+    audios: list[Audio] | None = None,
+    client: genai.Client | None = None,
+) -> ExtraccionTrabajo:
+    """Aplica una instrucción de ajuste a la cotización actual. Una llamada por pulsación del usuario."""
+    if not (instruccion.strip() or any(a.data for a in audios or [])):
+        raise ExtraccionError("Escribe o dicta la instrucción de ajuste.")
+    partes: list = ["COTIZACIÓN ACTUAL (JSON):", actual.model_dump_json(), "INSTRUCCIÓN DE AJUSTE:"]
+    partes += _partes(instruccion, audios)  # audio(s) y/o texto
+    return _generar(partes, PROMPT_AJUSTE + construir_prompt(), client)

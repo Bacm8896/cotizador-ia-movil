@@ -47,3 +47,18 @@ def test_texto_audio_o_ambos(texto, audios, n_partes):
 def test_sin_entrada_falla():
     with pytest.raises(ExtraccionError):
         extraer("  ", [], client=_Cliente())
+
+
+def test_ajustar_hace_una_llamada_con_el_json_actual_y_la_instruccion():
+    from cotizador.extractor import ajustar
+
+    c = _Cliente()
+    actual = ExtraccionTrabajo.model_validate(BASE)
+    ajustar(actual, "agrega una sirena a 45", [Audio(b"x")], client=c)
+    assert len(c.llamadas) == 1
+    contenido = c.llamadas[0]["contents"]
+    assert actual.model_dump_json() in contenido and "agrega una sirena a 45" in contenido
+    assert len(contenido) == 5  # 3 textos + audio + instrucción
+    with pytest.raises(ExtraccionError):
+        ajustar(actual, "  ", [], client=c)
+    assert len(c.llamadas) == 1
