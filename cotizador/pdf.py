@@ -1,41 +1,44 @@
-"""Cotización en PDF (ReportLab, A4). Solo lista lo cotizado: sin filas vacías de talonario."""
+"""Cotización en PDF (ReportLab, A4) con la estructura de la cotización de referencia.
+
+Cabecera (logo izquierda, datos a la derecha) · título y datos del cliente · tabla de ítems ·
+subtotal / IVA · notas técnicas · bloque de cierre. Solo lista lo cotizado: sin filas vacías.
+"""
 import io
 from decimal import Decimal
 from functools import lru_cache
+from xml.sax.saxutils import escape
 
+from PIL import Image as PILImage
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
-from PIL import Image as PILImage
 from reportlab.platypus import (
-    BaseDocTemplate, CondPageBreak, Frame, HRFlowable, Image, PageTemplate, Paragraph, Spacer, Table, TableStyle,
+    BaseDocTemplate, Frame, HRFlowable, Image, KeepTogether, PageTemplate, Paragraph, Spacer, Table, TableStyle,
 )
-from xml.sax.saxutils import escape
 
 from .config import EMPRESA, ruta_logo
 from .renderer import money, qty
 from .schemas import Cotizacion
 
 MARGEN = 20 * mm
-ROJO = colors.HexColor("#C8102E")       # rojo del logo ALARMEC
-GRIS_OSCURO = colors.HexColor("#2B2B2B")
-GRIS = colors.HexColor("#6B6B6B")
-GRIS_CLARO = colors.HexColor("#F3F3F3")
-LINEA = colors.HexColor("#D9D9D9")
+ROJO = colors.HexColor("#B71C1C")        # rojo institucional
+TEXTO = colors.HexColor("#333333")
+GRIS = colors.HexColor("#666666")
+TENUE = colors.HexColor("#EBF3FB")       # fondo de las notas técnicas
+BORDE = colors.HexColor("#4A4A4A")
 ANCHO = A4[0] - 2 * MARGEN
 ALTO = A4[1] - 2 * MARGEN
-AZUL_TENUE = colors.HexColor("#EEF3F8")
-LOGO_MAX_W = 40 * mm   # el logo se ajusta dentro de esta caja sin deformarse
-LOGO_MAX_H = 13 * mm
-LOGO_MAX_PX = 700      # resolución controlada: se reduce si el archivo es muy grande
+LOGO_MAX_W = 38 * mm   # el logo se ajusta dentro de esta caja sin deformarse
+LOGO_MAX_H = 30 * mm
+LOGO_MAX_PX = 800      # resolución controlada: se reduce si el archivo es muy grande
 BASE_GAP = 5 * mm
-MAX_GAP = 16 * mm
+MAX_GAP = 14 * mm
 
 
 def _s(nombre, **kw) -> ParagraphStyle:
-    base = dict(fontName="Helvetica", fontSize=9.5, leading=13, textColor=GRIS_OSCURO)
+    base = dict(fontName="Helvetica", fontSize=9.5, leading=13, textColor=TEXTO)
     base.update(kw)
     return ParagraphStyle(nombre, **base)
 
@@ -43,26 +46,24 @@ def _s(nombre, **kw) -> ParagraphStyle:
 ST = {
     "txt": _s("txt"),
     "peq": _s("peq", fontSize=8.5, leading=11.5, textColor=GRIS),
-    "emp_nombre": _s("emp_nombre", fontName="Helvetica-Bold", fontSize=18, leading=21, textColor=GRIS_OSCURO, charSpace=2.5),
-    "emp_giro": _s("emp_giro", fontSize=8.5, leading=11.5, textColor=GRIS),
-    "barra": _s("barra", fontSize=8.5, leading=11, textColor=GRIS_OSCURO),
-    "nota_ti": _s("nota_ti", fontName="Helvetica-Bold", fontSize=8, leading=10, textColor=ROJO),
-    "nota": _s("nota", fontSize=9, leading=12.5, leftIndent=9, bulletIndent=0),
-    "iva_nota": _s("iva_nota", fontName="Helvetica-Oblique", fontSize=8.5, textColor=GRIS, alignment=TA_RIGHT),
-    "titulo": _s("titulo", fontName="Helvetica-Bold", fontSize=17, leading=20, textColor=GRIS_OSCURO),
-    "fecha": _s("fecha", fontSize=9.5, textColor=GRIS, alignment=TA_RIGHT),
-    "et": _s("et", fontName="Helvetica-Bold", fontSize=8, leading=10, textColor=ROJO),
-    "th": _s("th", fontName="Helvetica-Bold", fontSize=9, textColor=colors.white),
-    "th_r": _s("th_r", fontName="Helvetica-Bold", fontSize=9, textColor=colors.white, alignment=TA_RIGHT),
-    "th_c": _s("th_c", fontName="Helvetica-Bold", fontSize=9, textColor=colors.white, alignment=TA_CENTER),
+    "marca": _s("marca", fontName="Helvetica-Bold", fontSize=25, leading=28, textColor=ROJO, alignment=TA_RIGHT),
+    "eslogan": _s("eslogan", fontName="Helvetica-Bold", fontSize=11.5, leading=15, alignment=TA_RIGHT),
+    "datos": _s("datos", fontSize=8.5, leading=11.5, textColor=GRIS, alignment=TA_RIGHT),
+    "titulo": _s("titulo", fontName="Helvetica-Bold", fontSize=14, leading=17),
+    "fecha": _s("fecha", fontSize=10, alignment=TA_RIGHT),
+    "th": _s("th", fontName="Helvetica-Bold", fontSize=9, leading=11, textColor=colors.white, alignment=TA_CENTER),
     "td_c": _s("td_c", alignment=TA_CENTER),
     "td_r": _s("td_r", alignment=TA_RIGHT),
-    "tot_et": _s("tot_et", textColor=GRIS, alignment=TA_RIGHT),
-    "tot_v": _s("tot_v", alignment=TA_RIGHT),
-    "total_et": _s("total_et", fontName="Helvetica-Bold", fontSize=11, textColor=colors.white, alignment=TA_RIGHT),
-    "total_v": _s("total_v", fontName="Helvetica-Bold", fontSize=12, textColor=colors.white, alignment=TA_RIGHT),
-    "firma": _s("firma", alignment=TA_CENTER, leading=13),
-    "pie": _s("pie", fontSize=8, textColor=GRIS, alignment=TA_CENTER),
+    "sub_et": _s("sub_et", fontName="Helvetica-Bold", alignment=TA_RIGHT),
+    "sub_v": _s("sub_v", fontName="Helvetica-Bold", alignment=TA_RIGHT),
+    "tot_et": _s("tot_et", fontName="Helvetica-Bold", fontSize=11, textColor=ROJO, alignment=TA_RIGHT),
+    "tot_v": _s("tot_v", fontName="Helvetica-Bold", fontSize=11, textColor=ROJO, alignment=TA_RIGHT),
+    "iva_nota": _s("iva_nota", fontName="Helvetica-Oblique", fontSize=8.5, textColor=GRIS, alignment=TA_RIGHT),
+    "nota_ti": _s("nota_ti", fontName="Helvetica-Bold", fontSize=9.5, leading=12),
+    "nota": _s("nota", leftIndent=10, bulletIndent=0, leading=13),
+    "cierre_ti": _s("cierre_ti", fontName="Helvetica-Bold", fontSize=10.5, leading=14),
+    "firma": _s("firma", leading=13),
+    "firma_b": _s("firma_b", fontName="Helvetica-Bold", leading=13),
 }
 
 
@@ -74,6 +75,14 @@ def _usd(v: Decimal) -> str:
     return f"$ {money(v)}"
 
 
+def _fecha_texto(fecha: str) -> str:
+    """'19 DE OCTUBRE DEL 2026' -> '19 de Octubre del 2026'."""
+    t = fecha.lower().split()
+    if len(t) == 5:  # día de mes del año
+        t[2] = t[2].capitalize()
+    return " ".join(t)
+
+
 class _Gap(Spacer):
     """Separador cuya altura se reparte luego para llenar la hoja."""
 
@@ -82,6 +91,7 @@ class _Gap(Spacer):
         self.base = base
 
 
+# ------------------------------------------------------------------ logo
 @lru_cache(maxsize=4)
 def _logo_png(ruta: str, mtime_ns: int) -> tuple[bytes, int, int]:
     """Logo reducido (si hace falta) y recodificado a PNG; la clave incluye mtime para detectar reemplazos."""
@@ -89,7 +99,7 @@ def _logo_png(ruta: str, mtime_ns: int) -> tuple[bytes, int, int]:
     img.load()
     if img.mode not in ("RGB", "RGBA", "L"):
         img = img.convert("RGBA")
-    img.thumbnail((LOGO_MAX_PX, LOGO_MAX_PX))
+    img.thumbnail((LOGO_MAX_PX, LOGO_MAX_PX), PILImage.LANCZOS)
     buf = io.BytesIO()
     img.save(buf, "PNG", optimize=True)
     return buf.getvalue(), img.width, img.height
@@ -107,36 +117,32 @@ def _logo() -> Image | None:
     return Image(io.BytesIO(datos), width=w * escala, height=h * escala, hAlign="LEFT", mask="auto")
 
 
+# ------------------------------------------------------------------ secciones
 def _cabecera() -> list:
-    """Logo arriba; debajo ALARMEC y los servicios; debajo una barra con dirección, teléfono y correo."""
-    bloques: list = []
-    logo = _logo()
-    if logo is not None:
-        bloques += [logo, Spacer(1, 2 * mm)]
-    bloques += [_p(EMPRESA.nombre, "emp_nombre"), Paragraph(escape(EMPRESA.giro), ST["emp_giro"]), Spacer(1, 2.5 * mm)]
-
-    celdas = [
-        Paragraph(f"<font color='#C8102E'><b>DIRECCIÓN</b></font>&nbsp; {escape(EMPRESA.direccion.title())} · {escape(EMPRESA.ciudad_emision)}", ST["barra"]),
-        Paragraph(f"<font color='#C8102E'><b>TELÉFONO</b></font>&nbsp; {escape(EMPRESA.telefono)}", ST["barra"]),
+    """Logo a la izquierda; a la derecha marca, eslogan, especialidades, dirección y teléfono. Filete rojo debajo."""
+    contacto = f"Tel: {EMPRESA.telefono}" + (f" | {EMPRESA.correo}" if EMPRESA.correo else "")
+    derecha = [
+        _p(EMPRESA.nombre, "marca"),
+        _p(EMPRESA.eslogan, "eslogan"),
+        _p(EMPRESA.especialidades, "datos"),
+        _p(f"Dirección: {EMPRESA.direccion_pdf} | {EMPRESA.ciudad_emision}, Ecuador", "datos"),
+        _p(contacto, "datos"),
     ]
-    anchos = [ANCHO * 0.58, ANCHO * 0.42]
-    if EMPRESA.correo:
-        celdas.append(Paragraph(f"<font color='#C8102E'><b>CORREO</b></font>&nbsp; {escape(EMPRESA.correo)}", ST["barra"]))
-        anchos = [ANCHO * 0.42, ANCHO * 0.24, ANCHO * 0.34]
-    barra = Table([celdas], colWidths=anchos)
-    barra.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), GRIS_CLARO),
-        ("LINEABOVE", (0, 0), (-1, 0), 1.2, ROJO),
+    logo = _logo()
+    ancho_logo = (logo.drawWidth + 6 * mm) if logo is not None else 0
+    t = Table([[logo or "", derecha]], colWidths=[ancho_logo, ANCHO - ancho_logo])
+    t.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 8), ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-        ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
     ]))
-    return bloques + [barra]
+    return [t, Spacer(1, 3 * mm), HRFlowable(width="100%", thickness=1.75, color=ROJO, spaceBefore=0, spaceAfter=0)]
 
 
 def _titulo(cot: Cotizacion) -> Table:
-    t = Table([[_p("COTIZACIÓN", "titulo"), _p(f"{EMPRESA.ciudad_emision}, {cot.fecha.capitalize()}", "fecha")]],
-              colWidths=[ANCHO * 0.5, ANCHO * 0.5])
+    titulo = "COTIZACIÓN Nº: " + cot.numero if cot.numero else "COTIZACIÓN"
+    t = Table([[_p(titulo, "titulo"), _p(f"{EMPRESA.ciudad_emision}, {_fecha_texto(cot.fecha)}", "fecha")]],
+              colWidths=[ANCHO * 0.6, ANCHO * 0.4])
     t.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
@@ -147,64 +153,72 @@ def _titulo(cot: Cotizacion) -> Table:
 
 def _cliente(cot: Cotizacion) -> Table:
     def campo(etiqueta, valor):
-        return Paragraph(f"<font color='#C8102E' size='7.5'><b>{etiqueta}</b></font>&nbsp;&nbsp;{escape(valor or '—')}", ST["txt"])
+        return Paragraph(f"<b>{etiqueta}:</b> {escape(valor or '—')}", ST["txt"])
 
-    filas = [
-        [campo("CLIENTE", cot.cliente_nombre), campo("TELÉFONO", cot.cliente_telefono)],
-        [campo("DIRECCIÓN", cot.cliente_direccion), campo("CIUDAD", cot.cliente_ciudad)],
-    ]
+    izquierda = [campo("CLIENTE", cot.cliente_nombre)]
     if cot.cliente_atencion:
-        filas.append([campo("ATENCIÓN", cot.cliente_atencion), ""])
-    t = Table(filas, colWidths=[ANCHO * 0.58, ANCHO * 0.42])
+        izquierda.append(campo("ATENCIÓN", cot.cliente_atencion))
+    izquierda += [campo("DIRECCIÓN", cot.cliente_direccion), campo("CIUDAD", cot.cliente_ciudad)]
+    t = Table([[izquierda, [campo("TELÉFONO", cot.cliente_telefono)]]], colWidths=[ANCHO * 0.66, ANCHO * 0.34])
     t.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), GRIS_CLARO),
-        ("LINEBEFORE", (0, 0), (0, -1), 2.5, ROJO),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 8), ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-        ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
     ]))
     return t
 
 
 def _items(cot: Cotizacion) -> Table:
     w = [18 * mm, ANCHO - 18 * mm - 30 * mm - 32 * mm, 30 * mm, 32 * mm]
-    filas = [[_p("CANT.", "th_c"), _p("DESCRIPCIÓN", "th"), _p("P. UNITARIO", "th_r"), _p("TOTAL", "th_r")]]
+    filas = [[_p(h, "th") for h in ("CANT.", "DESCRIPCIÓN", "PRECIO UNIT.", "PRECIO TOTAL")]]
+    spans = []
     if cot.titulo_trabajo:
         filas.append(["", Paragraph(f"<b>{escape(cot.titulo_trabajo)}</b>", ST["txt"]), "", ""])
+        spans.append(len(filas) - 1)
     for l in cot.lineas:
         filas.append([_p(qty(l.cantidad), "td_c"), _p(l.descripcion, "txt"),
                       _p(_usd(l.precio_unitario), "td_r"), _p(_usd(l.total), "td_r")])
     for o in cot.observaciones:
         filas.append(["", Paragraph(f"<i>{escape(o)}</i>", ST["peq"]), "", ""])
+        spans.append(len(filas) - 1)
 
     t = Table(filas, colWidths=w, repeatRows=1)
     estilo = [
         ("BACKGROUND", (0, 0), (-1, 0), ROJO),
+        ("GRID", (0, 0), (-1, -1), 0.6, BORDE),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("LEFTPADDING", (0, 0), (-1, -1), 6), ("RIGHTPADDING", (0, 0), (-1, -1), 6),
         ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-        ("LINEBELOW", (0, 1), (-1, -1), 0.5, LINEA),
-        ("LINEBELOW", (0, -1), (-1, -1), 1, GRIS),
     ]
-    for i in range(2, len(filas), 2):  # cebra sutil
-        estilo.append(("BACKGROUND", (0, i), (-1, i), GRIS_CLARO))
+    for r in spans:  # título del trabajo y observaciones ocupan descripción + precios
+        estilo.append(("SPAN", (1, r), (3, r)))
     t.setStyle(TableStyle(estilo))
     return t
 
 
-def _totales(cot: Cotizacion) -> Table:
-    filas = [[_p("Subtotal", "tot_et"), _p(_usd(cot.subtotal), "tot_v")]]
+def _liquidacion(cot: Cotizacion) -> Table:
+    """SUBTOTAL (y nota de IVA) alineados a la derecha; con IVA > 0 se desglosa Subtotal, IVA y Total."""
     if cot.iva_porcentaje > 0:
-        filas.append([_p(f"IVA {qty(cot.iva_porcentaje)}%", "tot_et"), _p(_usd(cot.iva), "tot_v")])
-    filas.append([_p("TOTAL", "total_et"), _p(_usd(cot.total), "total_v")])
-    t = Table(filas, colWidths=[32 * mm, 38 * mm], hAlign="RIGHT")
-    t.setStyle(TableStyle([
-        ("BACKGROUND", (0, -1), (-1, -1), ROJO),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ("TOPPADDING", (0, -1), (-1, -1), 7), ("BOTTOMPADDING", (0, -1), (-1, -1), 7),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-    ]))
+        filas = [
+            [_p("SUBTOTAL:", "sub_et"), _p(_usd(cot.subtotal), "sub_v")],
+            [_p(f"IVA {qty(cot.iva_porcentaje)}%:", "sub_et"), _p(_usd(cot.iva), "sub_v")],
+            [_p("TOTAL:", "tot_et"), _p(_usd(cot.total), "tot_v")],
+        ]
+    else:
+        filas = [
+            [_p("SUBTOTAL:", "sub_et"), _p(_usd(cot.subtotal), "sub_v")],
+            [_p("* Precios no incluyen IVA", "iva_nota"), ""],
+        ]
+    t = Table(filas, colWidths=[ANCHO - 32 * mm, 32 * mm], hAlign="RIGHT")
+    estilo = [
+        ("LEFTPADDING", (0, 0), (-1, -1), 6), ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 2), ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+    ]
+    if cot.iva_porcentaje > 0:
+        estilo.append(("LINEABOVE", (0, -1), (-1, -1), 0.8, BORDE))
+    else:
+        estilo.append(("SPAN", (0, 1), (1, 1)))
+    t.setStyle(TableStyle(estilo))
     return t
 
 
@@ -216,95 +230,65 @@ def _notas_tecnicas(cot: Cotizacion) -> Table | None:
     contenido += [Paragraph(escape(l), ST["nota"], bulletText="•") for l in lineas]
     t = Table([[contenido]], colWidths=[ANCHO])
     t.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), AZUL_TENUE),
-        ("LINEBEFORE", (0, 0), (0, -1), 2.5, GRIS),
-        ("LEFTPADDING", (0, 0), (-1, -1), 10), ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-        ("TOPPADDING", (0, 0), (-1, -1), 6), ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("BACKGROUND", (0, 0), (-1, -1), TENUE),
+        ("ROUNDEDCORNERS", [3, 3, 3, 3]),
+        ("LEFTPADDING", (0, 0), (-1, -1), 10), ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+        ("TOPPADDING", (0, 0), (-1, -1), 7), ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
     ]))
     return t
 
 
-def _condiciones(cot: Cotizacion, ancho: float) -> Table | None:
-    filas = []
-    pago = cot.forma_pago + (f" · Saldo: {cot.saldo}" if cot.saldo else "") if cot.forma_pago else cot.saldo
-    for etiqueta, valor in (("FORMA DE PAGO", pago), ("TIEMPO DE ENTREGA", cot.tiempo_entrega), ("GARANTÍA", cot.garantia)):
-        if valor:
-            filas.append([_p(etiqueta, "et"), _p(valor, "txt")])
-    if not filas:
-        return None
-    t = Table([[_p("CONDICIONES COMERCIALES", "et"), ""], *filas], colWidths=[36 * mm, ancho - 36 * mm])
-    t.setStyle(TableStyle([
-        ("SPAN", (0, 0), (-1, 0)),
-        ("BOX", (0, 0), (-1, -1), 0.8, LINEA),
-        ("LINEBELOW", (0, 0), (-1, 0), 0.8, LINEA),
-        ("BACKGROUND", (0, 0), (-1, 0), GRIS_CLARO),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 8), ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-        ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-    ]))
-    return t
-
-
-def _firma(ancho: float) -> Table:
-    bloque = [
-        HRFlowable(width=ancho * 0.85, thickness=0.8, color=GRIS_OSCURO, spaceBefore=0, spaceAfter=4),
-        Paragraph(f"<b>Sr. {escape(EMPRESA.firmante_nombre.title())}</b>", ST["firma"]),
-        Paragraph(escape(EMPRESA.cargo.capitalize()), ST["firma"]),
-        Paragraph(escape(f"{EMPRESA.nombre} · Tel. {EMPRESA.telefono}"), ST["peq"].clone("f2", alignment=TA_CENTER)),
+def _cierre(cot: Cotizacion) -> KeepTogether:
+    """Condiciones comerciales + ATENTAMENTE + firma, siempre juntos (nunca una firma huérfana)."""
+    flow: list = []
+    pago = cot.forma_pago + (f" | Saldo {cot.saldo.lower()}" if cot.saldo else "") if cot.forma_pago else cot.saldo
+    condiciones = [(et, v) for et, v in (("FORMA DE PAGO", pago), ("TIEMPO DE ENTREGA", cot.tiempo_entrega),
+                                         ("GARANTÍA", cot.garantia)) if v]
+    if condiciones:
+        flow.append(_p("CONDICIONES COMERCIALES", "cierre_ti"))
+        flow.append(Spacer(1, 2))
+        flow += [Paragraph(f"<b>{et}:</b> {escape(v)}", ST["txt"]) for et, v in condiciones]
+        flow.append(Spacer(1, 6 * mm))
+    flow += [
+        _p("ATENTAMENTE,", "firma_b"),
+        Spacer(1, 11 * mm),
+        HRFlowable(width=55 * mm, thickness=0.8, color=TEXTO, hAlign="LEFT", spaceBefore=0, spaceAfter=3),
+        _p(f"Sr. {EMPRESA.firmante_nombre.title()}", "firma"),
+        _p(EMPRESA.cargo, "firma_b"),
     ]
-    t = Table([["", [Spacer(1, 9 * mm), *bloque]]], colWidths=[0, ancho])
-    t.setStyle(TableStyle([
-        ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-        ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-    ]))
-    return t
+    return KeepTogether(flow)
 
 
-def _pie(cot: Cotizacion) -> Table:
-    """Condiciones comerciales (izquierda) y firma (derecha) en una sola franja: ahorra alto de hoja."""
-    ancho_c = ANCHO * 0.64
-    ancho_f = ANCHO - ancho_c - 6 * mm
-    cond = _condiciones(cot, ancho_c)
-    t = Table([[cond or "", "", _firma(ancho_f)]], colWidths=[ancho_c, 6 * mm, ancho_f])
-    t.setStyle(TableStyle([
-        ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-        ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-    ]))
-    return t
-
-
+# ------------------------------------------------------------------ ensamblado
 def _story(cot: Cotizacion) -> list:
     story = [
         *_cabecera(),
-        _Gap(3 * mm),
+        _Gap(5 * mm),
         _titulo(cot),
-        _Gap(3.5 * mm),
+        _Gap(3 * mm),
         _cliente(cot),
         _Gap(),
         _items(cot),
-        Spacer(1, 3 * mm),
-        _totales(cot),
+        Spacer(1, 2 * mm),
+        _liquidacion(cot),
     ]
-    if cot.iva_porcentaje <= 0:
-        story += [Spacer(1, 1.5 * mm), _p("* Precios no incluyen IVA", "iva_nota")]
     notas = _notas_tecnicas(cot)
     if notas is not None:
-        story += [_Gap(4 * mm), notas]
-    story.append(_Gap())
-    pie = _pie(cot)  # si no cabe debajo, pasa completo a la página siguiente
-    story += [CondPageBreak(pie.wrap(ANCHO, ALTO)[1] + 2 * mm), pie]
+        story += [_Gap(), notas]
+    story += [_Gap(7 * mm), _cierre(cot)]
     return story
+
+
+def _alto(f) -> float:
+    if isinstance(f, KeepTogether):  # su wrap exige canvas: se suma el alto de su contenido
+        return sum(_alto(c) for c in f._content)
+    return f.wrap(ANCHO, ALTO)[1]
 
 
 def _repartir_espacio(story: list) -> None:
     """Estira los separadores para que el contenido ocupe la hoja sin un hueco desproporcionado."""
     gaps = [f for f in story if isinstance(f, _Gap)]
-    usado = 0.0
-    for f in story:
-        _, h = f.wrap(ANCHO, ALTO)
-        usado += h
-    sobra = ALTO - usado - 10 * mm  # 10 mm de seguridad
+    sobra = ALTO - sum(_alto(f) for f in story) - 10 * mm  # 10 mm de seguridad
     if sobra <= 0 or not gaps:
         return
     extra = min(sobra / sum(g.base for g in gaps), (MAX_GAP / BASE_GAP) - 1)
@@ -316,7 +300,7 @@ def generar_pdf(cot: Cotizacion) -> bytes:
     buf = io.BytesIO()
     doc = BaseDocTemplate(
         buf, pagesize=A4, leftMargin=MARGEN, rightMargin=MARGEN, topMargin=MARGEN, bottomMargin=MARGEN,
-        title=f"Cotización {EMPRESA.nombre} - {cot.cliente_nombre}".strip(" -"),
+        title=f"Cotización {cot.numero} {EMPRESA.nombre} - {cot.cliente_nombre}".replace("  ", " ").strip(" -"),
         author=EMPRESA.nombre,
     )
     # marco sin relleno interno: el ancho/alto útil es exactamente ANCHO x ALTO

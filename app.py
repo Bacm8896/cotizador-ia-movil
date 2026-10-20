@@ -15,6 +15,7 @@ import pandas as pd
 import streamlit as st
 
 from cotizador import borrador as bd
+from cotizador import numeracion
 from cotizador.config import get_setting
 from cotizador.extractor import Audio, ExtraccionError, ajustar, extraer
 from cotizador.pdf import generar_pdf
@@ -90,8 +91,10 @@ def _audios(*widgets) -> list[Audio]:
 
 
 def _nuevo_borrador(ext) -> None:
+    previo = ss.borrador["numero"] if ss.borrador else ""  # un ajuste con IA conserva el número ya elegido
     ss.extraccion_completada = ext
     ss.borrador = bd.desde_extraccion(ext)
+    ss.borrador["numero"] = previo or numeracion.siguiente(fecha.year)
     _ir(2)
 
 
@@ -152,6 +155,9 @@ elif ss.paso == 2:
         ss.setdefault(f"f_{campo}", b[campo])
 
     st.subheader("Datos del cliente y condiciones")
+    num_col, _ = st.columns([1, 3])
+    num_col.text_input("Nº de cotización", key="f_numero",
+                       help="Sugerido automáticamente (AÑO-NÚMERO); puedes cambiarlo.")
     a, c, d = st.columns(3)
     a.text_input("Cliente", key="f_nombre")
     c.text_input("ATN", key="f_atencion")
@@ -262,6 +268,7 @@ elif ss.paso == 3:
         _ir(2)
         st.rerun()
     if n2.button("✅ Aprobar y Generar PDF", type="primary"):
+        numeracion.registrar(ss.cot.numero)  # la próxima sugerencia será el siguiente número
         _ir(4)
         st.rerun()
 

@@ -30,6 +30,9 @@ def _boton(at, texto):
 
 
 def _abrir():
+    from cotizador import numeracion
+    import tempfile
+    numeracion.ARCHIVO = Path(tempfile.mkdtemp()) / "secuencia.json"  # no ensucia data/ real
     at = AppTest.from_file(APP, default_timeout=60)
     at.session_state["autenticado"] = True
     return at.run()
@@ -121,3 +124,18 @@ def test_iva_por_defecto_cero_y_notas_tecnicas_llegan_al_pdf():
         texto = fitz.open(stream=at.session_state["pdf"], filetype="pdf")[0].get_text()
         assert "NOTAS Y REQUISITOS TÉCNICOS" in texto and "IP66" in texto
         assert "* Precios no incluyen IVA" in texto
+
+
+def test_numero_de_cotizacion_sugerido_editable_y_en_el_pdf():
+    import fitz
+    from datetime import date
+    with mock.patch("cotizador.extractor.extraer", return_value=_ext()):
+        at = _hasta_paso2(_abrir())
+        campo = at.text_input(key="f_numero")
+        assert campo.value == f"{date.today().year}-0001"
+        campo.input("2026-1024").run()
+        _boton(at, "Continuar").click().run()
+        assert fitz.open(stream=at.session_state["pdf"], filetype="pdf")[0].get_text().count("COTIZACIÓN Nº: 2026-1024") == 1
+        _boton(at, "Aprobar").click().run()
+        from cotizador import numeracion
+        assert numeracion.siguiente(2026) == "2026-1025"

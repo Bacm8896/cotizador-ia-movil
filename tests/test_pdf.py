@@ -9,7 +9,7 @@ from cotizador.pdf import generar_pdf
 from cotizador.schemas import Cotizacion, Linea
 
 BASE = dict(
-    fecha="06 DE ABRIL DEL 2023", cliente_nombre="ARQ. MAURICIO PAZMIÑO", cliente_telefono="0983885380",
+    numero="2026-0007", fecha="06 DE ABRIL DEL 2023", cliente_nombre="ARQ. MAURICIO PAZMIÑO", cliente_telefono="0983885380",
     cliente_direccion="LA FLORESTA", cliente_ciudad="QUITO-ECUADOR", titulo_trabajo="CERCA ELECTRICA",
     observaciones=["MATERIAL Y MANO DE OBRA INCLUIDOS"], forma_pago="50% A LA FIRMA DEL CONTRATO",
     saldo="CONTRAENTREGA", tiempo_entrega="DE 2 A 4 DIAS LABORABLES", garantia="UN AÑO EN EQUIPO E INSTALACIÓN",
@@ -34,15 +34,20 @@ def test_pdf_valido_una_pagina_con_los_datos():
     doc = _paginas(pdf)
     assert len(doc) == 1
     texto = doc[0].get_text()
-    for esperado in ("COTIZACIÓN", "ARQ. MAURICIO PAZMIÑO", "ITEM 1 DE PRUEBA", "$ 8,00", "TOTAL",
-                     "CONDICIONES COMERCIALES", "Sr. Luis Carvajal V.", "Asesor en seguridad"):
+    for esperado in ("COTIZACIÓN Nº: 2026-0007", "Quito, 06 de Abril del 2023", "CLIENTE: ARQ. MAURICIO PAZMIÑO",
+                     "TELÉFONO: 0983885380", "CANT.", "PRECIO UNIT.", "PRECIO TOTAL", "ITEM 1 DE PRUEBA", "$ 8,00",
+                     "SUBTOTAL:", "CONDICIONES COMERCIALES", "ATENTAMENTE,", "Sr. Luis Carvajal V.", "ASESOR EN SEGURIDAD",
+                     "Seguridad Electrónica Integral & Automatización",
+                     "CCTV • Alarmas • Cercas Eléctricas • Motores de Garaje • Domótica",
+                     "Dirección: Guillermo Cornejo N60-53 y Flavio Alfaro | Quito, Ecuador", "Tel: 098 700 3533"):
         assert esperado in texto, esperado
     assert "* Precios no incluyen IVA" in texto and "IVA 15%" not in texto
+    assert "�" not in texto and "□" not in texto  # sin caracteres rotos
 
 
 def test_pdf_con_iva():
     texto = _paginas(generar_pdf(_cot(3, iva=True)))[0].get_text()
-    assert "IVA 15%" in texto and "Subtotal" in texto and "no incluyen IVA" not in texto
+    assert "SUBTOTAL:" in texto and "IVA 15%:" in texto and "TOTAL:" in texto and "no incluyen IVA" not in texto
 
 
 def test_sin_filas_vacias_el_alto_depende_de_los_items():
@@ -137,7 +142,7 @@ def test_sin_logo_el_pdf_se_genera(monkeypatch):
 def test_correo_solo_si_esta_configurado(monkeypatch):
     from dataclasses import replace
     from cotizador import pdf as P
-    assert "CORREO" not in _paginas(generar_pdf(_cot(1)))[0].get_text()
+    assert "Tel: 098 700 3533 |" not in _paginas(generar_pdf(_cot(1)))[0].get_text()
     monkeypatch.setattr(P, "EMPRESA", replace(P.EMPRESA, correo="ventas@ejemplo.com"))
     t = _paginas(generar_pdf(_cot(1)))[0].get_text()
-    assert "CORREO" in t and "ventas@ejemplo.com" in t
+    assert "Tel: 098 700 3533 | ventas@ejemplo.com" in t

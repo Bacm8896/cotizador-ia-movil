@@ -26,7 +26,7 @@ def normalizar_telefono(telefono: str) -> str | None:
 
 
 def mensaje(cot: Cotizacion) -> str:
-    L = [f"*COTIZACIÓN {EMPRESA.nombre}*", f"{EMPRESA.ciudad_emision}, {cot.fecha}"]
+    L = [f"*COTIZACIÓN {EMPRESA.nombre}*" + (f" Nº {cot.numero}" if cot.numero else ""), f"{EMPRESA.ciudad_emision}, {cot.fecha}"]
     if cot.cliente_nombre:
         L.append(f"Cliente: {cot.cliente_nombre}")
     L.append("")

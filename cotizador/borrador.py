@@ -8,7 +8,7 @@ from .config import DEFECTOS
 from .schemas import Cliente, Cotizacion, ExtraccionTrabajo, ItemExtraido
 
 CAMPOS_TEXTO = (
-    "nombre", "atencion", "telefono", "direccion", "ciudad", "titulo",
+    "numero", "nombre", "atencion", "telefono", "direccion", "ciudad", "titulo",
     "forma_pago", "saldo", "tiempo_entrega", "garantia", "observaciones", "notas_tecnicas",
 )
 CONDICIONES = {  # campo -> (nombre legible, valor por defecto)
@@ -48,6 +48,7 @@ def limpiar_items(items: list[dict]) -> list[dict]:
 def desde_extraccion(ext: ExtraccionTrabajo) -> dict:
     c = ext.cliente
     b = {
+        "numero": "",  # lo asigna la app (sugerencia correlativa) y el usuario puede editarlo
         "nombre": c.nombre or "", "atencion": c.atencion or "", "telefono": c.telefono or "",
         "direccion": c.direccion or "", "ciudad": c.ciudad or DEFECTOS.ciudad_cliente,
         "titulo": ext.titulo_trabajo or "",
@@ -115,4 +116,5 @@ def calcular_borrador(b: dict, iva: float = 0.0) -> Resultado:
 
 def cotizacion(b: dict, iva: float, fecha: date) -> tuple[Cotizacion, Resultado]:
     res = calcular_borrador(b, iva)
-    return construir(a_extraccion(b, con_items=False), res, fecha), res
+    cot = construir(a_extraccion(b, con_items=False), res, fecha)
+    return cot.model_copy(update={"numero": b.get("numero", "").strip()}), res

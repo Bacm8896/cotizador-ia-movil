@@ -5,3 +5,4 @@ __pycache__/
 # Excel modelo con datos reales de un cliente
 *.xls
 *.xlsx
+data/

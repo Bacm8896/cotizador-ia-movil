@@ -55,8 +55,9 @@ class Linea(BaseModel):
 
 
 class Cotizacion(BaseModel):
-    """Todo lo que necesita la plantilla HTML."""
+    """Todo lo que necesita la plantilla HTML y el PDF."""
 
+    numero: str = ""
     fecha: str
     cliente_nombre: str = ""
     cliente_atencion: str = ""

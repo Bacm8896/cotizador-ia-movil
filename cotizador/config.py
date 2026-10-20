@@ -49,6 +49,9 @@ class Empresa:
     )
     direccion: str = "GUILLERMO CORNEJO N60-53 Y FLAVIO ALFARO"
     telefono: str = "098 700 3533"
+    eslogan: str = "Seguridad Electrónica Integral & Automatización"
+    especialidades: str = "CCTV • Alarmas • Cercas Eléctricas • Motores de Garaje • Domótica"
+    direccion_pdf: str = "Guillermo Cornejo N60-53 y Flavio Alfaro"
     correo: str = ""  # opcional; se define con EMPRESA_CORREO (secrets/.env) y solo se imprime si existe
     ciudad_emision: str = "Quito"
     firmante: str = "Sr LUIS CARVAJAL"
