@@ -33,7 +33,7 @@ def _cot():
 def test_mensaje_incluye_totales_y_formato_es():
     m = mensaje(_cot())
     assert "29 METROS TENDIDO x 8,00 = 232,00" in m and "*TOTAL: 232,00*" in m
-    assert "IVA" not in m
+    assert "IVA 15%" not in m
 
 
 def test_enlace_con_y_sin_numero():
@@ -41,3 +41,13 @@ def test_enlace_con_y_sin_numero():
     assert u.netloc == "wa.me" and u.path == "/593987003533"
     assert parse_qs(u.query)["text"] == ["Hola & adiós\n2"]
     assert urlparse(enlace("", "x")).path == "/"
+
+
+def test_mensaje_nota_iva_y_notas_tecnicas():
+    c = _cot()
+    assert "Precios no incluyen IVA" in mensaje(c)  # IVA 0
+    c2 = c.model_copy(update={"iva_porcentaje": Decimal(15), "iva": Decimal("34.80"), "total": Decimal("266.80"),
+                              "notas_tecnicas": "Requiere internet.\nIP66."})
+    m = mensaje(c2)
+    assert "IVA 15%: 34,80" in m and "no incluyen IVA" not in m
+    assert "*Notas técnicas:*" in m and "• Requiere internet." in m and "• IP66." in m

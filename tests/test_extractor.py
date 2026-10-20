@@ -6,7 +6,7 @@ from cotizador.schemas import ExtraccionTrabajo
 BASE = {
     "cliente": {"nombre": "A", "atencion": None, "telefono": None, "direccion": None, "ciudad": None},
     "titulo_trabajo": None, "items": [], "observaciones": [], "forma_pago": None, "saldo": None,
-    "tiempo_entrega": None, "garantia": None, "total_declarado": None,
+    "tiempo_entrega": None, "garantia": None, "notas_tecnicas": None, "total_declarado": None,
 }
 
 

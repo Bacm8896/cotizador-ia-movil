@@ -17,7 +17,7 @@ def _datos(precio=5, cliente=True, items=None):
         "titulo_trabajo": "CAMARAS",
         "items": items or [{"cantidad": 2, "descripcion": "CAMARA DOMO", "precio_unitario": precio, "total_declarado": None}],
         "observaciones": [], "forma_pago": None, "saldo": None, "tiempo_entrega": None,
-        "garantia": None, "total_declarado": None,
+        "garantia": None, "notas_tecnicas": None, "total_declarado": None,
     }
 
 
@@ -106,3 +106,18 @@ def test_ajuste_con_ia_es_una_llamada_explicita_y_reemplaza_el_borrador():
         assert aj.call_count == 1 and ext.call_count == 1 and not at.exception
         assert _total(at) == "55.00"
         assert aj.call_args.args[1] == "agrega una sirena a 45"
+
+
+def test_iva_por_defecto_cero_y_notas_tecnicas_llegan_al_pdf():
+    ext = ExtraccionTrabajo.model_validate({**_datos(), "notas_tecnicas": "Requiere internet estable."})
+    with mock.patch("cotizador.extractor.extraer", return_value=ext):
+        at = _hasta_paso2(_abrir())
+        assert at.sidebar.number_input[0].value == 0
+        campo = at.text_area(key="f_notas_tecnicas")
+        assert campo.value == "Requiere internet estable."      # extraída por la IA
+        campo.input("Requiere internet estable.\nCámaras IP66.").run()  # editable
+        _boton(at, "Continuar").click().run()
+        import fitz
+        texto = fitz.open(stream=at.session_state["pdf"], filetype="pdf")[0].get_text()
+        assert "NOTAS Y REQUISITOS TÉCNICOS" in texto and "IP66" in texto
+        assert "* Precios no incluyen IVA" in texto

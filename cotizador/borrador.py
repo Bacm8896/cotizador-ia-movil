@@ -9,7 +9,7 @@ from .schemas import Cliente, Cotizacion, ExtraccionTrabajo, ItemExtraido
 
 CAMPOS_TEXTO = (
     "nombre", "atencion", "telefono", "direccion", "ciudad", "titulo",
-    "forma_pago", "saldo", "tiempo_entrega", "garantia", "observaciones",
+    "forma_pago", "saldo", "tiempo_entrega", "garantia", "observaciones", "notas_tecnicas",
 )
 CONDICIONES = {  # campo -> (nombre legible, valor por defecto)
     "forma_pago": ("forma de pago", DEFECTOS.forma_pago),
@@ -52,6 +52,7 @@ def desde_extraccion(ext: ExtraccionTrabajo) -> dict:
         "direccion": c.direccion or "", "ciudad": c.ciudad or DEFECTOS.ciudad_cliente,
         "titulo": ext.titulo_trabajo or "",
         "observaciones": "\n".join(ext.observaciones),
+        "notas_tecnicas": (ext.notas_tecnicas or "").strip(),
         "items": limpiar_items([i.model_dump() for i in ext.items]),
         "total_declarado": ext.total_declarado,
         "usados_defecto": [],
@@ -79,6 +80,7 @@ def a_extraccion(b: dict, con_items: bool = True) -> ExtraccionTrabajo:
         observaciones=[o.strip() for o in b["observaciones"].splitlines() if o.strip()],
         forma_pago=b["forma_pago"] or None, saldo=b["saldo"] or None,
         tiempo_entrega=b["tiempo_entrega"] or None, garantia=b["garantia"] or None,
+        notas_tecnicas=b["notas_tecnicas"].strip() or None,
         total_declarado=b.get("total_declarado"),
     )
 

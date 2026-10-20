@@ -31,4 +31,5 @@ def construir(
         saldo=(ext.saldo or DEFECTOS.saldo).upper(),
         tiempo_entrega=(ext.tiempo_entrega or DEFECTOS.tiempo_entrega).upper(),
         garantia=(ext.garantia or DEFECTOS.garantia).upper(),
+        notas_tecnicas=(ext.notas_tecnicas or "").strip(),
     )

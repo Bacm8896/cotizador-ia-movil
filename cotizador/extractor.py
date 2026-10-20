@@ -26,6 +26,7 @@ Reglas:
 - Escribe descripciones, título y observaciones en MAYÚSCULAS, como en las cotizaciones de la empresa.
 - Incluye la unidad en la descripción del ítem ('METROS TENDIDO CERCA ELECTRICA', 'CAMARAS DOMO 2MP').
 - Si la nota dice 'material y mano de obra incluidos' (o similar), ponlo en observaciones.
+- Si se mencionan requisitos o especificaciones técnicas (conexión a internet, resistencia al agua, voltaje, ubicación o altura de instalación, etc.), ponlos en 'notas_tecnicas', una idea por línea y en oraciones normales (no en mayúsculas). No repitas ahí las observaciones comerciales ni las condiciones de pago.
 - En audio, interpreta cifras habladas ('veintinueve' = 29, 'ocho dólares' = 8).
 
 Catálogo oficial (descripción oficial | formas en que suelen dictarlo | precio unitario):

@@ -40,7 +40,13 @@ def mensaje(cot: Cotizacion) -> str:
     if cot.iva_porcentaje > 0:
         L.append(f"IVA {qty(cot.iva_porcentaje)}%: {money(cot.iva)}")
     L.append(f"*TOTAL: {money(cot.total)}*")
+    if cot.iva_porcentaje <= 0:
+        L.append("_* Precios no incluyen IVA_")
     L.append("")
+    if cot.notas_tecnicas:
+        L.append("*Notas técnicas:*")
+        L += [f"• {n.strip()}" for n in cot.notas_tecnicas.splitlines() if n.strip()]
+        L.append("")
     if cot.forma_pago:
         L.append(f"Forma de pago: {cot.forma_pago}" + (f". Saldo: {cot.saldo}" if cot.saldo else ""))
     if cot.tiempo_entrega:

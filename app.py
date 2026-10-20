@@ -104,7 +104,10 @@ def _paginas_png(pdf: bytes) -> list[bytes]:
 # ------------------------------------------------------------------ sidebar
 with st.sidebar:
     st.header("Opciones")
-    iva = st.number_input("IVA % (0 = sin IVA)", min_value=0.0, max_value=100.0, value=0.0, step=1.0)
+    iva = st.number_input(
+        "IVA %", min_value=0.0, max_value=100.0, value=0.0, step=1.0,
+        help="Por defecto 0%: el PDF indica «Precios no incluyen IVA». Con IVA > 0 se desglosa.",
+    )
     fecha = st.date_input("Fecha de la cotización", value=date.today())
     st.caption("Los totales siempre los calcula Python; la IA solo extrae datos.")
 
@@ -173,7 +176,11 @@ elif ss.paso == 2:
             "total_declarado": None,  # oculta: solo se usa para avisar de diferencias
         },
     )
-    st.text_area("Observaciones (una por línea)", key="f_observaciones", height=70)
+    st.text_area("Observaciones bajo la tabla (una por línea)", key="f_observaciones", height=70)
+    st.text_area(
+        "Notas técnicas u observaciones (opcional)", key="f_notas_tecnicas", height=90,
+        placeholder="Requisitos de internet, resistencia al agua, voltaje… (una idea por línea)",
+    )
 
     # Casillas de precio para los ítems sin precio (Python local, recalcula al instante)
     items = bd.limpiar_items(df.to_dict("records"))

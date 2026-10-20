@@ -37,11 +37,12 @@ def test_pdf_valido_una_pagina_con_los_datos():
     for esperado in ("COTIZACIÓN", "ARQ. MAURICIO PAZMIÑO", "ITEM 1 DE PRUEBA", "$ 8,00", "TOTAL",
                      "CONDICIONES COMERCIALES", "Sr. Luis Carvajal V.", "Asesor en seguridad"):
         assert esperado in texto, esperado
-    assert "IVA" not in texto
+    assert "* Precios no incluyen IVA" in texto and "IVA 15%" not in texto
 
 
 def test_pdf_con_iva():
-    assert "IVA 15%" in _paginas(generar_pdf(_cot(3, iva=True)))[0].get_text()
+    texto = _paginas(generar_pdf(_cot(3, iva=True)))[0].get_text()
+    assert "IVA 15%" in texto and "Subtotal" in texto and "no incluyen IVA" not in texto
 
 
 def test_sin_filas_vacias_el_alto_depende_de_los_items():
@@ -76,3 +77,67 @@ def test_margenes_minimos_de_20mm(n):
         for img in p.get_image_info():
             x0, y0, x1, y1 = img["bbox"]
             assert x0 >= margen and y0 >= margen and x1 <= A4[0] - margen
+
+
+# ------------------------------------------------------------------ notas técnicas
+NOTAS = "Se requiere internet estable.\nCámaras IP66 resistentes al agua."
+
+
+def test_notas_tecnicas_se_renderizan_solo_si_hay_texto():
+    con = _paginas(generar_pdf(_cot(2).model_copy(update={"notas_tecnicas": NOTAS})))[0].get_text()
+    assert "NOTAS Y REQUISITOS TÉCNICOS" in con and "Se requiere internet estable." in con and "IP66" in con
+    sin = _paginas(generar_pdf(_cot(2)))[0].get_text()
+    assert "NOTAS Y REQUISITOS" not in sin
+
+
+def test_sin_notas_no_deja_hueco():
+    from cotizador import pdf as P
+    con = P._story(_cot(2).model_copy(update={"notas_tecnicas": NOTAS}))
+    sin = P._story(_cot(2))
+    assert len(con) == len(sin) + 2  # separador + sección; nada más
+
+
+# ------------------------------------------------------------------ logo
+def _png(tmp_path, ancho, alto, nombre="logo.png"):
+    from PIL import Image
+    ruta = tmp_path / nombre
+    Image.new("RGB", (ancho, alto), (200, 16, 46)).save(ruta)
+    return ruta
+
+
+@pytest.mark.parametrize("ancho,alto", [(290, 175), (1000, 200), (200, 600), (4000, 3000)])
+def test_logo_mantiene_proporcion_y_cabe_en_su_caja(tmp_path, monkeypatch, ancho, alto):
+    from cotizador import pdf as P
+    ruta = _png(tmp_path, ancho, alto)
+    monkeypatch.setattr(P, "ruta_logo", lambda: ruta)
+    P._logo_png.cache_clear()
+    logo = P._logo()
+    assert logo.drawWidth <= P.LOGO_MAX_W + 0.01 and logo.drawHeight <= P.LOGO_MAX_H + 0.01
+    assert abs(logo.drawWidth / logo.drawHeight - ancho / alto) / (ancho / alto) < 0.02
+    assert len(_paginas(generar_pdf(_cot(2)))) == 1
+
+
+def test_logo_grande_se_reduce_y_reemplazo_se_detecta(tmp_path, monkeypatch):
+    from cotizador import pdf as P
+    ruta = _png(tmp_path, 4000, 3000)
+    datos, w, h = P._logo_png(str(ruta), ruta.stat().st_mtime_ns)
+    assert max(w, h) <= P.LOGO_MAX_PX
+    _png(tmp_path, 300, 100)  # el usuario reemplaza el archivo
+    import os
+    os.utime(ruta, ns=(ruta.stat().st_atime_ns, ruta.stat().st_mtime_ns + 10**9))
+    assert P._logo_png(str(ruta), ruta.stat().st_mtime_ns)[1:] == (300, 100)
+
+
+def test_sin_logo_el_pdf_se_genera(monkeypatch):
+    from cotizador import pdf as P
+    monkeypatch.setattr(P, "ruta_logo", lambda: None)
+    assert _paginas(generar_pdf(_cot(1)))[0].get_text().startswith("ALARMEC")
+
+
+def test_correo_solo_si_esta_configurado(monkeypatch):
+    from dataclasses import replace
+    from cotizador import pdf as P
+    assert "CORREO" not in _paginas(generar_pdf(_cot(1)))[0].get_text()
+    monkeypatch.setattr(P, "EMPRESA", replace(P.EMPRESA, correo="ventas@ejemplo.com"))
+    t = _paginas(generar_pdf(_cot(1)))[0].get_text()
+    assert "CORREO" in t and "ventas@ejemplo.com" in t

@@ -9,7 +9,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 TEMPLATES_DIR = BASE_DIR / "templates"
-LOGO_PATH = BASE_DIR / "assets" / "logo_alarmec.png"
+LOGO_CANDIDATOS = [BASE_DIR / "assets" / n for n in ("logo.png", "logo.jpg", "logo.jpeg", "logo_alarmec.png")]
+
+
+def ruta_logo() -> Path | None:
+    """Logo institucional: reemplaza assets/logo.png y el PDF lo toma sin tocar código."""
+    return next((r for r in LOGO_CANDIDATOS if r.exists()), None)
+
+
+LOGO_PATH = ruta_logo() or LOGO_CANDIDATOS[0]  # usado por el HTML heredado
 
 
 
@@ -41,6 +49,7 @@ class Empresa:
     )
     direccion: str = "GUILLERMO CORNEJO N60-53 Y FLAVIO ALFARO"
     telefono: str = "098 700 3533"
+    correo: str = ""  # opcional; se define con EMPRESA_CORREO (secrets/.env) y solo se imprime si existe
     ciudad_emision: str = "Quito"
     firmante: str = "Sr LUIS CARVAJAL"
     firmante_nombre: str = "LUIS CARVAJAL V."
@@ -89,5 +98,5 @@ CATALOGO_ALARMEC: list[ItemCatalogo] = [
 ]
 
 
-EMPRESA = Empresa()
+EMPRESA = Empresa(correo=get_setting("EMPRESA_CORREO", "") or "")
 DEFECTOS = CondicionesPorDefecto()

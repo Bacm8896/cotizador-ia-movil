@@ -37,6 +37,10 @@ class ExtraccionTrabajo(BaseModel):
     saldo: str | None = Field(description="Condición del saldo si se menciona (p. ej. 'CONTRAENTREGA')")
     tiempo_entrega: str | None = Field(description="Tiempo de entrega si se menciona")
     garantia: str | None = Field(description="Garantía si se menciona")
+    notas_tecnicas: str | None = Field(
+        description="Requisitos o especificaciones técnicas mencionados (internet, resistencia al agua, voltaje, "
+                    "ubicación de equipos…), una idea por línea, en oraciones normales; null si no hay"
+    )
     total_declarado: float | None = Field(
         description="Total general SOLO si el texto lo menciona literalmente; no lo calcules"
     )
@@ -70,3 +74,4 @@ class Cotizacion(BaseModel):
     saldo: str = ""
     tiempo_entrega: str = ""
     garantia: str = ""
+    notas_tecnicas: str = ""

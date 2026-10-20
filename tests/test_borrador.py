@@ -7,7 +7,7 @@ from cotizador.schemas import ExtraccionTrabajo
 DATOS = {
     "cliente": {"nombre": "ARQ. X", "atencion": None, "telefono": None, "direccion": None, "ciudad": None},
     "titulo_trabajo": "CERCA", "observaciones": ["MATERIAL INCLUIDO"], "forma_pago": None, "saldo": None,
-    "tiempo_entrega": None, "garantia": None, "total_declarado": None,
+    "tiempo_entrega": None, "garantia": None, "notas_tecnicas": None, "total_declarado": None,
     "items": [
         {"cantidad": 29, "descripcion": "METROS", "precio_unitario": 8, "total_declarado": None},
         {"cantidad": 1, "descripcion": "SIRENA", "precio_unitario": None, "total_declarado": None},
@@ -49,3 +49,15 @@ def test_ida_y_vuelta_y_cotizacion():
     cot, res = bd.cotizacion(b, iva=0, fecha=date(2023, 4, 6))
     assert res.ok and str(res.total) == "277.00" and cot.fecha == "06 DE ABRIL DEL 2023"
     assert cot.tiempo_entrega == DEFECTOS.tiempo_entrega.upper()
+
+
+def test_notas_tecnicas_ida_y_vuelta():
+    datos = {**DATOS, "notas_tecnicas": "Requiere internet.\nCámaras IP66."}
+    b = bd.desde_extraccion(ExtraccionTrabajo.model_validate(datos))
+    assert b["notas_tecnicas"] == "Requiere internet.\nCámaras IP66."
+    b["notas_tecnicas"] = "  Solo una nota  "
+    assert bd.a_extraccion(b).notas_tecnicas == "Solo una nota"
+    b["notas_tecnicas"] = "   "
+    assert bd.a_extraccion(b).notas_tecnicas is None
+    cot, _ = bd.cotizacion({**b, "notas_tecnicas": "Nota X", "items": [{"cantidad": 1, "descripcion": "A", "precio_unitario": 2, "total_declarado": None}]}, 0, date(2024, 1, 1))
+    assert cot.notas_tecnicas == "Nota X"
