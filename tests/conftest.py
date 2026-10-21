@@ -7,9 +7,11 @@ import pytest
 @pytest.fixture(autouse=True)
 def sin_gemini_real(monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
 
     def prohibido(*a, **k):
         raise AssertionError("Un test intentó crear un cliente real de Gemini; usa un mock.")
 
     with mock.patch("cotizador.extractor.genai.Client", side_effect=prohibido):
-        yield
+        with mock.patch("groq.Groq", side_effect=prohibido):
+            yield

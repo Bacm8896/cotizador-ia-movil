@@ -34,7 +34,16 @@ def get_setting(nombre: str, defecto: str | None = None) -> str | None:
 
 
 def gemini_model() -> str:
-    return get_setting("GEMINI_MODEL", "gemini-3.5-flash")  # capa gratuita
+    """Modelo flash de la capa gratuita (gemini-1.5/2.0-flash ya fueron retirados; nunca 'pro')."""
+    return get_setting("GEMINI_MODEL", "gemini-3.5-flash")
+
+
+def groq_chat_model() -> str:
+    return get_setting("GROQ_CHAT_MODEL", "llama-3.3-70b-versatile")
+
+
+def groq_stt_model() -> str:
+    return get_setting("GROQ_STT_MODEL", "whisper-large-v3-turbo")  # alternativa: whisper-large-v3
 
 
 @dataclass(frozen=True)

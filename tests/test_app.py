@@ -53,7 +53,9 @@ def test_flujo_completo_4_pasos_con_una_sola_llamada_a_gemini():
          mock.patch("cotizador.extractor.ajustar") as aj:
         at = _abrir()
         assert at.session_state["paso"] == 1
+        assert any("Versión:" in c.value for c in at.sidebar.caption) and any("IA:" in c.value for c in at.sidebar.caption)
         _hasta_paso2(at)
+        assert at.session_state["datos_cotizacion"] is not None
         assert at.session_state["paso"] == 2 and not at.exception
         assert _total(at) == "10.00"
 
@@ -76,6 +78,7 @@ def test_flujo_completo_4_pasos_con_una_sola_llamada_a_gemini():
         assert any("Descargar PDF" in str(e) for e in at.get("download_button"))
         assert at.get("link_button")
 
+        assert at.session_state["llamadas_ia"] == 1  # editar, cambiar IVA y generar el PDF no usaron la IA
         _boton(at, "Iniciar nueva").click().run()
         assert at.session_state["paso"] == 1 and at.session_state["borrador"] is None
 

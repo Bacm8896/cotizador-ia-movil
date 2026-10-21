@@ -17,7 +17,7 @@ import streamlit as st
 from cotizador import borrador as bd
 from cotizador import numeracion
 from cotizador.config import get_setting
-from cotizador.extractor import Audio, ExtraccionError, ajustar, extraer
+from cotizador.extractor import Audio, ExtraccionError, ajustar, descripcion_proveedor, extraer
 from cotizador.pdf import generar_pdf
 from cotizador.whatsapp import enlace, mensaje, normalizar_telefono
 
@@ -33,6 +33,7 @@ PASOS = {1: "Captura", 2: "Revisión y faltantes", 3: "Vista previa", 4: "Entreg
 TIPOS_AUDIO = ["wav", "mp3", "ogg", "flac", "aac", "m4a", "webm"]
 MIME_AUDIO = {"audio/x-m4a": "audio/mp4", "audio/m4a": "audio/mp4", "audio/x-wav": "audio/wav"}
 
+VERSION = "2026-10-21 · PDF v3 (logo + Nº)"  # visible en la barra lateral: confirma qué versión está desplegada
 ss = st.session_state
 
 
@@ -56,7 +57,8 @@ if not ss.get("autenticado"):
 # ------------------------------------------------------------------- estado
 ss.setdefault("paso", 1)
 ss.setdefault("texto", "")
-ss.setdefault("extraccion_completada", None)  # resultado de Gemini; solo cambia al pulsarse un botón de IA
+ss.setdefault("datos_cotizacion", None)  # resultado de la IA; solo cambia al pulsarse un botón de IA
+ss.setdefault("llamadas_ia", 0)               # cuántas veces se invocó la IA en esta sesión
 ss.setdefault("borrador", None)               # datos editables (cotizador.borrador)
 ss.setdefault("audio_version", 0)             # cambia la clave de los widgets de audio para limpiarlos
 ss.setdefault("ver_editor", 0)
@@ -92,7 +94,7 @@ def _audios(*widgets) -> list[Audio]:
 
 def _nuevo_borrador(ext) -> None:
     previo = ss.borrador["numero"] if ss.borrador else ""  # un ajuste con IA conserva el número ya elegido
-    ss.extraccion_completada = ext
+    ss.datos_cotizacion = ext
     ss.borrador = bd.desde_extraccion(ext)
     ss.borrador["numero"] = previo or numeracion.siguiente(fecha.year)
     _ir(2)
@@ -112,7 +114,10 @@ with st.sidebar:
         help="Por defecto 0%: el PDF indica «Precios no incluyen IVA». Con IVA > 0 se desglosa.",
     )
     fecha = st.date_input("Fecha de la cotización", value=date.today())
-    st.caption("Los totales siempre los calcula Python; la IA solo extrae datos.")
+    st.caption("Los totales siempre los calculan Python; la IA solo extrae datos.")
+    st.caption(f"IA: {descripcion_proveedor()}")
+    st.caption(f"Llamadas a la IA en esta sesión: {ss.llamadas_ia}")
+    st.caption(f"Versión: {VERSION}")
 
 st.title("🧾 Cotizador ALARMEC")
 st.progress(ss.paso / 4, text=f"Paso {ss.paso} de 4 · {PASOS[ss.paso]}")
@@ -137,6 +142,7 @@ if ss.paso == 1:
     if st.button("Procesar con IA", type="primary", disabled=not (ss.texto.strip() or audios)):
         with st.spinner("Procesando…"):
             try:
+                ss.llamadas_ia += 1
                 _nuevo_borrador(extraer(ss.texto, audios))
             except ExtraccionError as e:
                 st.error(str(e))
@@ -238,6 +244,7 @@ elif ss.paso == 2:
         if st.button("Aplicar ajuste con IA", disabled=not (instr.strip() or voz is not None)):
             with st.spinner("Aplicando ajuste…"):
                 try:
+                    ss.llamadas_ia += 1
                     _nuevo_borrador(ajustar(bd.a_extraccion(b), instr, _audios(voz)))
                 except ExtraccionError as e:
                     st.error(str(e))

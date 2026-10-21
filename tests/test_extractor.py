@@ -62,3 +62,20 @@ def test_ajustar_hace_una_llamada_con_el_json_actual_y_la_instruccion():
     with pytest.raises(ExtraccionError):
         ajustar(actual, "  ", [], client=c)
     assert len(c.llamadas) == 1
+
+
+def test_gemini_rechaza_modelos_pro_sin_llamar(monkeypatch):
+    monkeypatch.setenv("GEMINI_MODEL", "gemini-2.5-pro")
+    c = _Cliente()
+    with pytest.raises(ExtraccionError, match="no está permitido"):
+        extraer("hola", client=c)
+    assert c.llamadas == []
+
+
+def test_gemini_audio_y_texto_en_una_unica_llamada_con_modelo_flash():
+    c = _Cliente()
+    extraer("entrega en 3 días", [Audio(b"RIFF")], client=c)
+    assert len(c.llamadas) == 1
+    kw = c.llamadas[0]
+    assert "flash" in kw["model"] and "pro" not in kw["model"]
+    assert len(kw["contents"]) == 2 and kw["config"].response_schema is ExtraccionTrabajo
