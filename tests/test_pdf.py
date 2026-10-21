@@ -174,7 +174,7 @@ def test_logo_es_solo_el_isotipo_sin_el_texto_inferior():
     from cotizador.config import ruta_logo
     img = Image.open(ruta_logo())
     assert 1.4 < img.width / img.height < 2.1          # camara + ondas; con el texto debajo seria casi cuadrado
-    # la fila inferior del recorte pertenece a las ondas (rojas), no a letras oscuras
-    fila = [img.getpixel((x, img.height - 20)) for x in range(img.width)]
-    opacos = [p for p in fila if p[3] > 200]
-    assert opacos and sum(1 for r, g, b, a in opacos if r > 120 and g < 90) / len(opacos) > 0.5
+    # bien centrado: el dibujo opaco ocupa casi todo el recorte, con márgenes parejos
+    x0, y0, x1, y1 = img.getchannel("A").point(lambda a: 255 if a > 40 else 0).getbbox()
+    assert abs(x0 - (img.width - x1)) < 0.06 * img.width and abs(y0 - (img.height - y1)) < 0.06 * img.height
+    assert (x1 - x0) > 0.9 * img.width and (y1 - y0) > 0.9 * img.height
