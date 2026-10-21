@@ -167,3 +167,14 @@ def test_logo_es_transparente_y_no_trae_fondo_cuadrado():
     assert img.mode == "RGBA"
     esquinas = [img.getpixel(p)[3] for p in ((2, 2), (img.width - 3, 2), (2, img.height - 3), (img.width - 3, img.height - 3))]
     assert max(esquinas) < 30  # las esquinas son transparentes: el logo se integra al papel
+
+
+def test_logo_es_solo_el_isotipo_sin_el_texto_inferior():
+    from PIL import Image
+    from cotizador.config import ruta_logo
+    img = Image.open(ruta_logo())
+    assert 1.4 < img.width / img.height < 2.1          # camara + ondas; con el texto debajo seria casi cuadrado
+    # la fila inferior del recorte pertenece a las ondas (rojas), no a letras oscuras
+    fila = [img.getpixel((x, img.height - 20)) for x in range(img.width)]
+    opacos = [p for p in fila if p[3] > 200]
+    assert opacos and sum(1 for r, g, b, a in opacos if r > 120 and g < 90) / len(opacos) > 0.5

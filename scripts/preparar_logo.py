@@ -1,8 +1,9 @@
 """Convierte el logo con fondo rojo cuadrado (assets/logo_fuente.png) en un logo transparente (assets/logo.png).
 
 El fondo es un degradado rojo oscuro; se elimina rellenando desde los bordes con tolerancia local
-(el degradado cambia suavemente, los contornos del dibujo no). El texto blanco pasa a gris oscuro
-para que se lea sobre papel blanco. Uso:  python scripts/preparar_logo.py
+(el degradado cambia suavemente, los contornos del dibujo no). Además se descarta el texto
+"ALARMEC" de la parte inferior: queda solo el isotipo (cámara con ondas), recortado al contenido.
+Uso:  python scripts/preparar_logo.py
 """
 from pathlib import Path
 
@@ -13,8 +14,8 @@ RAIZ = Path(__file__).resolve().parent.parent
 FUENTE = RAIZ / "assets" / "logo_fuente.png"
 SALIDA = RAIZ / "assets" / "logo.png"
 TOLERANCIA = 7        # cambio máximo entre píxeles vecinos que aún cuenta como fondo
-FILA_TEXTO = 0.60     # el texto "ALARMEC" está en la parte inferior del logo
-TINTA = (28, 28, 28)  # color del texto sobre papel blanco
+HUECO_MIN = 12        # filas vacías seguidas que separan el isotipo del texto inferior
+OCUPACION_MIN = 0.004  # una fila con menos de este % de píxeles opacos cuenta como vacía
 
 
 def main() -> None:
@@ -41,21 +42,24 @@ def main() -> None:
     alfa = cv2.morphologyEx(alfa, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))   # quita motas sueltas
     alfa = cv2.GaussianBlur(alfa, (3, 3), 0)
 
-    # 3) texto claro de la parte inferior -> tinta oscura (sobre papel blanco no se vería)
-    rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB).astype(np.float32)
-    claridad = rgb.min(axis=2)
-    zona = np.zeros((h, w), bool)
-    zona[int(h * FILA_TEXTO):, :] = True
-    es_texto = zona & (alfa > 0) & (claridad > 90)
-    peso = np.clip((claridad - 90) / 110.0, 0, 1) * es_texto  # antialias: más claro = más tinta
-    for c, valor in enumerate(TINTA):
-        rgb[..., c] = rgb[..., c] * (1 - peso) + valor * peso
+    # 3) quitar el texto inferior: se busca el primer hueco horizontal vacío por debajo del isotipo
+    rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+    ocupacion = (alfa > 40).mean(axis=1)
+    primera = int(np.argmax(ocupacion > OCUPACION_MIN))  # primera fila con dibujo
+    vacias, corte = 0, h
+    for y in range(primera, h):
+        vacias = vacias + 1 if ocupacion[y] <= OCUPACION_MIN else 0
+        if vacias >= HUECO_MIN:
+            corte = y - vacias + 1
+            break
+    alfa[corte:, :] = 0
+    print(f"Isotipo: filas {primera}-{corte} de {h} (se descarta el texto inferior)")
 
-    # 4) recorte al contenido con un pequeño margen
+    # 4) recorte al contenido, centrado y con un pequeño margen
     ys, xs = np.where(alfa > 40)
-    m = 12
+    m = 14
     y0, y1, x0, x1 = max(ys.min() - m, 0), min(ys.max() + m, h), max(xs.min() - m, 0), min(xs.max() + m, w)
-    rgba = np.dstack([rgb, alfa.astype(np.float32)])[y0:y1, x0:x1].clip(0, 255).astype(np.uint8)
+    rgba = np.dstack([rgb.astype(np.float32), alfa.astype(np.float32)])[y0:y1, x0:x1].clip(0, 255).astype(np.uint8)
     cv2.imwrite(str(SALIDA), cv2.cvtColor(rgba, cv2.COLOR_RGBA2BGRA))
     print(f"Logo transparente: {SALIDA.name} {rgba.shape[1]}x{rgba.shape[0]}")
 
