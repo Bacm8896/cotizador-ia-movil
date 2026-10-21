@@ -1,4 +1,10 @@
-"""Borrador editable de la cotización (estado del asistente por pasos). Python puro, sin Streamlit."""
+"""
+Cotizador ALARMEC - Sistema automatizado de cotizaciones comerciales
+Desarrollado por: Byron Carvajal (https://www.linkedin.com/in/byroncarvajalia)
+Versión: 1.0 (Beta)
+
+Borrador editable de la cotización (estado del asistente por pasos). Python puro, sin Streamlit.
+"""
 import math
 from datetime import date
 

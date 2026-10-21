@@ -1,4 +1,9 @@
-"""Extracción de la cotización con IA: Groq (si hay GROQ_API_KEY) o Google Gemini.
+"""
+Cotizador ALARMEC - Sistema automatizado de cotizaciones comerciales
+Desarrollado por: Byron Carvajal (https://www.linkedin.com/in/byroncarvajalia)
+Versión: 1.0 (Beta)
+
+Extracción de la cotización con IA: Groq (si hay GROQ_API_KEY) o Google Gemini.
 
 * Gemini: UNA sola llamada unificada (audio y/o texto -> JSON con cliente, ítems y notas).
   Modelo flash obligatorio (nunca "pro"). Salida estructurada con el esquema Pydantic.

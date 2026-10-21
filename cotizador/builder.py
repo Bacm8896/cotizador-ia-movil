@@ -1,4 +1,10 @@
-"""Une extracción + cálculo validado + valores por defecto de la empresa."""
+"""
+Cotizador ALARMEC - Sistema automatizado de cotizaciones comerciales
+Desarrollado por: Byron Carvajal (https://www.linkedin.com/in/byroncarvajalia)
+Versión: 1.0 (Beta)
+
+Une extracción + cálculo validado + valores por defecto de la empresa.
+"""
 from datetime import date
 
 from .calculator import Resultado

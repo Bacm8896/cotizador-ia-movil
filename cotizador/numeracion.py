@@ -1,4 +1,9 @@
-"""Número correlativo de cotización (AÑO-NÚMERO) guardado en data/secuencia.json.
+"""
+Cotizador ALARMEC - Sistema automatizado de cotizaciones comerciales
+Desarrollado por: Byron Carvajal (https://www.linkedin.com/in/byroncarvajalia)
+Versión: 1.0 (Beta)
+
+Número correlativo de cotización (AÑO-NÚMERO) guardado en data/secuencia.json.
 
 En Streamlit Cloud el disco es temporal: la secuencia se reinicia si la app se redespliega.
 Por eso el número es siempre editable en el paso 2.

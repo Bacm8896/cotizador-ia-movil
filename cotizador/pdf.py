@@ -1,4 +1,9 @@
-"""Cotización en PDF (ReportLab, A4) con la estructura de la cotización de referencia.
+"""
+Cotizador ALARMEC - Sistema automatizado de cotizaciones comerciales
+Desarrollado por: Byron Carvajal (https://www.linkedin.com/in/byroncarvajalia)
+Versión: 1.0 (Beta)
+
+Cotización en PDF (ReportLab, A4) con la estructura de la cotización de referencia.
 
 Cabecera (logo izquierda, datos a la derecha) · título y datos del cliente · tabla de ítems ·
 subtotal / IVA · notas técnicas · bloque de cierre. Solo lista lo cotizado: sin filas vacías.

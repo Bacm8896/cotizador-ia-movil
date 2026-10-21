@@ -1,4 +1,10 @@
-"""Envío por WhatsApp sin costo: enlace wa.me (click-to-chat) con la cotización como texto."""
+"""
+Cotizador ALARMEC - Sistema automatizado de cotizaciones comerciales
+Desarrollado por: Byron Carvajal (https://www.linkedin.com/in/byroncarvajalia)
+Versión: 1.0 (Beta)
+
+Envío por WhatsApp sin costo: enlace wa.me (click-to-chat) con la cotización como texto.
+"""
 import re
 from urllib.parse import quote
 

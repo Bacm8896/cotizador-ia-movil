@@ -1,4 +1,9 @@
-"""Cotizador ALARMEC: asistente por pasos (voz/texto -> Gemini -> revisión -> PDF -> WhatsApp).
+"""
+Cotizador ALARMEC - Sistema automatizado de cotizaciones comerciales
+Desarrollado por: Byron Carvajal (https://www.linkedin.com/in/byroncarvajalia)
+Versión: 1.0 (Beta)
+
+Cotizador ALARMEC: asistente por pasos (voz/texto -> Gemini -> revisión -> PDF -> WhatsApp).
 
 PASO 1 Captura · PASO 2 Revisión y faltantes · PASO 3 Vista previa · PASO 4 Entrega.
 Gemini solo se invoca al pulsar "Procesar con IA" (paso 1) o "Aplicar ajuste con IA" (paso 2);
@@ -33,7 +38,6 @@ PASOS = {1: "Captura", 2: "Revisión y faltantes", 3: "Vista previa", 4: "Entreg
 TIPOS_AUDIO = ["wav", "mp3", "ogg", "flac", "aac", "m4a", "webm"]
 MIME_AUDIO = {"audio/x-m4a": "audio/mp4", "audio/m4a": "audio/mp4", "audio/x-wav": "audio/wav"}
 
-VERSION = "2026-10-21 · PDF v3 (logo + Nº)"  # visible en la barra lateral: confirma qué versión está desplegada
 ss = st.session_state
 
 
@@ -117,7 +121,10 @@ with st.sidebar:
     st.caption("Los totales siempre los calculan Python; la IA solo extrae datos.")
     st.caption(f"IA: {descripcion_proveedor()}")
     st.caption(f"Llamadas a la IA en esta sesión: {ss.llamadas_ia}")
-    st.caption(f"Versión: {VERSION}")
+
+# Firma de autoría, siempre al final de la barra lateral
+st.sidebar.markdown("---")
+st.sidebar.caption("🛠️ **Cotizador ALARMEC** v1.0 (Beta)\n\nDesarrollado por [Byron Carvajal](https://www.linkedin.com/in/byroncarvajalia)")
 
 st.title("🧾 Cotizador ALARMEC")
 st.progress(ss.paso / 4, text=f"Paso {ss.paso} de 4 · {PASOS[ss.paso]}")

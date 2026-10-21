@@ -1,4 +1,10 @@
-"""Configuración y datos fijos de la empresa (tomados del Excel modelo)."""
+"""
+Cotizador ALARMEC - Sistema automatizado de cotizaciones comerciales
+Desarrollado por: Byron Carvajal (https://www.linkedin.com/in/byroncarvajalia)
+Versión: 1.0 (Beta)
+
+Configuración y datos fijos de la empresa (tomados del Excel modelo).
+"""
 import os
 from dataclasses import dataclass
 from pathlib import Path

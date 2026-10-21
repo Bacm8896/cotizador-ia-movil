@@ -1,4 +1,10 @@
-"""Validación matemática en Python. El LLM nunca es la fuente de los totales."""
+"""
+Cotizador ALARMEC - Sistema automatizado de cotizaciones comerciales
+Desarrollado por: Byron Carvajal (https://www.linkedin.com/in/byroncarvajalia)
+Versión: 1.0 (Beta)
+
+Validación matemática en Python. El LLM nunca es la fuente de los totales.
+"""
 from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
 

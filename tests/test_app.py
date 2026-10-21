@@ -53,7 +53,7 @@ def test_flujo_completo_4_pasos_con_una_sola_llamada_a_gemini():
          mock.patch("cotizador.extractor.ajustar") as aj:
         at = _abrir()
         assert at.session_state["paso"] == 1
-        assert any("Versión:" in c.value for c in at.sidebar.caption) and any("IA:" in c.value for c in at.sidebar.caption)
+        assert any("v1.0 (Beta)" in c.value and "byroncarvajalia" in c.value for c in at.sidebar.caption) and any("IA:" in c.value for c in at.sidebar.caption)
         _hasta_paso2(at)
         assert at.session_state["datos_cotizacion"] is not None
         assert at.session_state["paso"] == 2 and not at.exception

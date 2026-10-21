@@ -1,4 +1,9 @@
-"""Modelos Pydantic.
+"""
+Cotizador ALARMEC - Sistema automatizado de cotizaciones comerciales
+Desarrollado por: Byron Carvajal (https://www.linkedin.com/in/byroncarvajalia)
+Versión: 1.0 (Beta)
+
+Modelos Pydantic.
 
 `ExtraccionTrabajo` es el esquema JSON que el LLM está obligado a devolver
 (Structured Outputs). Los demás modelos son el resultado ya validado en Python.

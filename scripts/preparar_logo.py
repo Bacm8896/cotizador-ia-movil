@@ -1,4 +1,9 @@
-"""Convierte el logo con fondo rojo cuadrado (assets/logo_fuente.png) en un logo transparente (assets/logo.png).
+"""
+Cotizador ALARMEC - Sistema automatizado de cotizaciones comerciales
+Desarrollado por: Byron Carvajal (https://www.linkedin.com/in/byroncarvajalia)
+Versión: 1.0 (Beta)
+
+Convierte el logo con fondo rojo cuadrado (assets/logo_fuente.png) en un logo transparente (assets/logo.png).
 
 El fondo es un degradado rojo oscuro; se elimina rellenando desde los bordes con tolerancia local
 (el degradado cambia suavemente, los contornos del dibujo no). Además se descarta el texto
