@@ -39,7 +39,7 @@ def gemini_model() -> str:
 
 
 def groq_chat_model() -> str:
-    return get_setting("GROQ_CHAT_MODEL", "llama-3.3-70b-versatile")
+    return get_setting("GROQ_CHAT_MODEL", "llama-3.1-8b-instant")
 
 
 def groq_stt_model() -> str:

@@ -37,7 +37,7 @@ def test_proveedor_segun_la_clave(monkeypatch):
     assert proveedor() == "gemini"
     monkeypatch.setenv("GROQ_API_KEY", "gsk_falsa")
     assert proveedor() == "groq"
-    assert "whisper-large-v3-turbo" in ex.descripcion_proveedor() and "llama-3.3-70b-versatile" in ex.descripcion_proveedor()
+    assert "whisper-large-v3-turbo" in ex.descripcion_proveedor() and "llama-3.1-8b-instant" in ex.descripcion_proveedor()
 
 
 def test_solo_texto_una_llamada_de_chat_en_modo_json_sin_transcribir(con_groq):
@@ -47,7 +47,7 @@ def test_solo_texto_una_llamada_de_chat_en_modo_json_sin_transcribir(con_groq):
     c.audio.transcriptions.create.assert_not_called()
     c.chat.completions.create.assert_called_once()
     kw = c.chat.completions.create.call_args.kwargs
-    assert kw["model"] == "llama-3.3-70b-versatile" and kw["response_format"] == {"type": "json_object"}
+    assert kw["model"] == "llama-3.1-8b-instant" and kw["response_format"] == {"type": "json_object"}
     assert kw["temperature"] == 0
     sistema, usuario = (m["content"] for m in kw["messages"])
     assert "JSON" in sistema and "notas_tecnicas" in sistema and "METROS TENDIDO CERCA ELECTRICA" in sistema
@@ -105,3 +105,10 @@ def test_sin_texto_ni_audio_no_llama_a_nadie(con_groq):
     with pytest.raises(ExtraccionError):
         extraer("  ", [], client=c)
     c.chat.completions.create.assert_not_called()
+
+
+def test_modelo_de_chat_se_puede_sobrescribir_con_la_variable(monkeypatch):
+    from cotizador.config import groq_chat_model
+    assert groq_chat_model() == "llama-3.1-8b-instant"
+    monkeypatch.setenv("GROQ_CHAT_MODEL", "llama-3.3-70b-versatile")
+    assert groq_chat_model() == "llama-3.3-70b-versatile"
