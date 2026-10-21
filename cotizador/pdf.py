@@ -49,8 +49,9 @@ ST = {
     "marca": _s("marca", fontName="Helvetica-Bold", fontSize=25, leading=28, textColor=ROJO, alignment=TA_RIGHT),
     "eslogan": _s("eslogan", fontName="Helvetica-Bold", fontSize=11.5, leading=15, alignment=TA_RIGHT),
     "datos": _s("datos", fontSize=8.5, leading=11.5, textColor=GRIS, alignment=TA_RIGHT),
-    "titulo": _s("titulo", fontName="Helvetica-Bold", fontSize=14, leading=17),
+    "titulo": _s("titulo", fontName="Helvetica-Bold", fontSize=14, leading=17, alignment=TA_RIGHT),
     "fecha": _s("fecha", fontSize=10, alignment=TA_RIGHT),
+    "txt_r": _s("txt_r", alignment=TA_RIGHT),
     "th": _s("th", fontName="Helvetica-Bold", fontSize=9, leading=11, textColor=colors.white, alignment=TA_CENTER),
     "td_c": _s("td_c", alignment=TA_CENTER),
     "td_r": _s("td_r", alignment=TA_RIGHT),
@@ -139,31 +140,24 @@ def _cabecera() -> list:
     return [t, Spacer(1, 3 * mm), HRFlowable(width="100%", thickness=1.75, color=ROJO, spaceBefore=0, spaceAfter=0)]
 
 
-def _titulo(cot: Cotizacion) -> Table:
-    titulo = "COTIZACIÓN Nº: " + cot.numero if cot.numero else "COTIZACIÓN"
-    t = Table([[_p(titulo, "titulo"), _p(f"{EMPRESA.ciudad_emision}, {_fecha_texto(cot.fecha)}", "fecha")]],
-              colWidths=[ANCHO * 0.6, ANCHO * 0.4])
-    t.setStyle(TableStyle([
-        ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-        ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-    ]))
-    return t
-
-
-def _cliente(cot: Cotizacion) -> Table:
-    def campo(etiqueta, valor):
-        return Paragraph(f"<b>{etiqueta}:</b> {escape(valor or '—')}", ST["txt"])
+def _datos_documento(cot: Cotizacion) -> Table:
+    """Dos columnas compactas. Izquierda: cliente, dirección y ciudad. Derecha (alineada a la derecha):
+    Nº de cotización y fecha arriba, y el teléfono a la altura de la ciudad."""
+    def campo(etiqueta, valor, estilo="txt"):
+        return Paragraph(f"<b>{etiqueta}:</b> {escape(valor or '—')}", ST[estilo])
 
     izquierda = [campo("CLIENTE", cot.cliente_nombre)]
     if cot.cliente_atencion:
         izquierda.append(campo("ATENCIÓN", cot.cliente_atencion))
     izquierda += [campo("DIRECCIÓN", cot.cliente_direccion), campo("CIUDAD", cot.cliente_ciudad)]
-    t = Table([[izquierda, [campo("TELÉFONO", cot.cliente_telefono)]]], colWidths=[ANCHO * 0.66, ANCHO * 0.34])
+    titulo = "COTIZACIÓN Nº: " + cot.numero if cot.numero else "COTIZACIÓN"
+    derecha = [_p(titulo, "titulo"), _p(f"{EMPRESA.ciudad_emision}, {_fecha_texto(cot.fecha)}", "fecha")]
+    derecha += [""] * (len(izquierda) - 3) + [campo("TELÉFONO", cot.cliente_telefono, "txt_r")]
+    t = Table([[a, b] for a, b in zip(izquierda, derecha)], colWidths=[ANCHO * 0.58, ANCHO * 0.42])
     t.setStyle(TableStyle([
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-        ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 1.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 1.5),
     ]))
     return t
 
@@ -264,9 +258,7 @@ def _story(cot: Cotizacion) -> list:
     story = [
         *_cabecera(),
         _Gap(5 * mm),
-        _titulo(cot),
-        _Gap(3 * mm),
-        _cliente(cot),
+        _datos_documento(cot),
         _Gap(),
         _items(cot),
         Spacer(1, 2 * mm),

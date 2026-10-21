@@ -39,7 +39,8 @@ def test_pdf_valido_una_pagina_con_los_datos():
                      "SUBTOTAL:", "CONDICIONES COMERCIALES", "ATENTAMENTE,", "Sr. Luis Carvajal V.", "ASESOR EN SEGURIDAD",
                      "Seguridad Electrónica Integral & Automatización",
                      "CCTV • Alarmas • Cercas Eléctricas • Motores de Garaje • Domótica",
-                     "Dirección: Guillermo Cornejo N60-53 y Flavio Alfaro | Quito, Ecuador", "Tel: 098 700 3533"):
+                     "Dirección: Guillermo Cornejo N60-53 y Flavio Alfaro | Quito, Ecuador",
+                     "Tel: 098 700 3533 | contacto@alarmec.com"):
         assert esperado in texto, esperado
     assert "* Precios no incluyen IVA" in texto and "IVA 15%" not in texto
     assert "�" not in texto and "□" not in texto  # sin caracteres rotos
@@ -139,10 +140,30 @@ def test_sin_logo_el_pdf_se_genera(monkeypatch):
     assert _paginas(generar_pdf(_cot(1)))[0].get_text().startswith("ALARMEC")
 
 
-def test_correo_solo_si_esta_configurado(monkeypatch):
+def test_correo_por_defecto_y_se_puede_quitar_o_cambiar(monkeypatch):
     from dataclasses import replace
     from cotizador import pdf as P
-    assert "Tel: 098 700 3533 |" not in _paginas(generar_pdf(_cot(1)))[0].get_text()
+    assert "Tel: 098 700 3533 | contacto@alarmec.com" in _paginas(generar_pdf(_cot(1)))[0].get_text()
     monkeypatch.setattr(P, "EMPRESA", replace(P.EMPRESA, correo="ventas@ejemplo.com"))
-    t = _paginas(generar_pdf(_cot(1)))[0].get_text()
-    assert "Tel: 098 700 3533 | ventas@ejemplo.com" in t
+    assert "Tel: 098 700 3533 | ventas@ejemplo.com" in _paginas(generar_pdf(_cot(1)))[0].get_text()
+    monkeypatch.setattr(P, "EMPRESA", replace(P.EMPRESA, correo=""))
+    assert "Tel: 098 700 3533 |" not in _paginas(generar_pdf(_cot(1)))[0].get_text()
+
+
+def test_bloque_de_datos_dos_columnas_telefono_a_la_altura_de_la_ciudad():
+    doc = _paginas(generar_pdf(_cot(1)))[0]
+    def caja(texto):
+        return doc.search_for(texto)[0]
+    num, fecha = caja("COTIZACIÓN Nº"), caja("Quito, 06 de Abril")
+    cli, dire, ciudad, tel = caja("CLIENTE:"), caja("DIRECCIÓN:"), caja("CIUDAD:"), caja("TELÉFONO:")
+    assert abs(ciudad.y0 - tel.y0) < 3 and abs(cli.y0 - num.y0) < 3 and abs(dire.y0 - fecha.y0) < 3
+    assert num.x0 > doc.rect.width / 2 and tel.x0 > doc.rect.width / 2 and cli.x0 < doc.rect.width / 3
+
+
+def test_logo_es_transparente_y_no_trae_fondo_cuadrado():
+    from PIL import Image
+    from cotizador.config import ruta_logo
+    img = Image.open(ruta_logo())
+    assert img.mode == "RGBA"
+    esquinas = [img.getpixel(p)[3] for p in ((2, 2), (img.width - 3, 2), (2, img.height - 3), (img.width - 3, img.height - 3))]
+    assert max(esquinas) < 30  # las esquinas son transparentes: el logo se integra al papel
